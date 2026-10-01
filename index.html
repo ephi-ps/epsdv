@@ -2178,7 +2178,7 @@ function paintAdm(){
   const _uvI=ws.reduce((a,w)=>a+(dv(w,'undervax')||0),0), _uvV=ws.reduce((a,w)=>a+(dv(w,'uvcVax')||0),0);
   mkC('a3',{type:'bar',data:{labels:['Zero-dose','Under-vacc'],datasets:[{label:'Identified',data:[_zdI,_uvI],backgroundColor:'#94A3B8',borderRadius:3,barPercentage:0.55},{label:'Vaccinated',data:[_zdV,_uvV],backgroundColor:'#1D8A6E',borderRadius:3,barPercentage:0.55}]},options:barOpt('',null,true,'U5 children '+yAxisDay())});
  const _vR=ws.reduce((a,w)=>a+(dv(w,'vialRecv')||0),0), _vU=ws.reduce((a,w)=>a+(dv(w,'vialUsed')||0),0);
-  mkC('a4',{type:'bar',indexAxis:'y',data:{labels:['Received Vials','Used Vials','Remaining Vials'],datasets:[{data:[_vR,_vU,Math.max(0,_vR-_vU)],backgroundColor:['#2C5F8A','#1D8A6E','#94A3B8'],borderRadius:3,barPercentage:0.65}]},options:barOptH('','Number of Vials '+yAxisDay())});
+  mkC('a4',{type:'bar',data:{labels:['Received Vials','Used Vials','Remaining Vials'],datasets:[{data:[_vR,_vU,Math.max(0,_vR-_vU)],backgroundColor:['#2C5F8A','#1D8A6E','#94A3B8'],borderRadius:3,barPercentage:0.65}]},options:barOpt('',null,false,'Number of Vials '+yAxisDay())});
 }
 function setMode(m){modeByTab[active]=m;paint();}
 // reusable cumulative/daily switch for any applicable tab (default cumulative)
