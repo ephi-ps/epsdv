@@ -1855,6 +1855,9 @@ function locSuffix(){var p=placeName();return p==='National'?'(All Implementing 
 // Dynamic day/mode label for chart y-axis titles. Daily -> (Day X);
 // cumulative on Day 1 -> (Day 1); cumulative beyond -> (Day 1 to Day X).
 function yAxisDay(){var d=DAYS[dayIdx];if(curMode()==='daily')return '('+d+')';return dayIdx===0?'(Day 1)':('(Day 1 to '+d+')');}
+// Single-bracket location + day phrase for box headers, e.g. (Gambella: Day 1 to Mop-up 2)
+// or (Gambella: Mop-up 2 only). National shows "All Implementing Areas".
+function locDay(){var p=placeName();var loc=(p==='National')?'All Implementing Areas':p;var d=DAYS[dayIdx];var ph=(curMode()==='daily')?(d+' only'):(dayIdx===0?'Day 1':('Day 1 to '+d));return '('+loc+': '+ph+')';}
 function redKpiBorder(l,n,unit){const alarm=(n!=null&&n>0);const vc=alarm?'var(--L1)':'var(--navy)';const v=(n==null?'No Data':n.toLocaleString());return '<div class="kpi" style="border:1.5px solid var(--L1)"><div class="l">'+l+'</div><div class="v" style="color:'+vc+'">'+v+'</div><div class="d" style="color:var(--mut)">'+unit+'</div></div>';}
 var admExpanded={};
 function admToggleRegion(r){admExpanded[r]=!admExpanded[r];paint();}
@@ -2125,19 +2128,19 @@ function paintAdm(){
       const recv=sumOrNull(ws.map(w=>dv(w,'vialRecv'))),used=sumOrNull(ws.map(w=>dv(w,'vialUsed'))),part=sumOrNull(ws.map(w=>dv(w,'vialPartial'))),good=sumOrNull(ws.map(w=>dv(w,'vialGood'))),broken=sumOrNull(ws.map(w=>dv(w,'vialBroken'))),vvm=sumOrNull(ws.map(w=>dv(w,'vialVVM'))),lost=sumOrNull(ws.map(w=>dv(w,'vialLost')));
       const nd2=(v)=>v==null?'No Data':v.toLocaleString();
       return '<div style="height:14px"></div>'+
-        '<div style="font-size:13px;font-weight:bold;color:var(--navy);margin-bottom:8px">Vaccinated by age '+locSuffix()+' '+modeCap()+'</div>'+
+        '<div style="font-size:13px;font-weight:bold;color:var(--navy);margin-bottom:8px">Vaccinated by age '+locDay()+'</div>'+
         '<div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">'+
           kpi('Under 1 Vaccinated',nd2(u1),'0 to 11 months')+
           redKpiBorder('Under 1 Not Vaccinated',u1n,'0 to 11 months')+
           kpi('>= 1 Vaccinated',nd2(u15),'12 to 59 months')+
           redKpiBorder('>= 1 Not Vaccinated',u15n,'12 to 59 months')+
         '</div>'+
-        '<div style="font-size:13px;font-weight:bold;color:var(--navy);margin:10px 0 8px">Zero dose '+locSuffix()+' '+modeCap()+'</div>'+
+        '<div style="font-size:13px;font-weight:bold;color:var(--navy);margin:10px 0 8px">Zero dose '+locDay()+'</div>'+
         '<div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">'+
           kpi('Zero dose identified',nd2(zdI),'')+
           kpi('Zero dose vaccinated',nd2(zdV),'')+
         '</div>'+
-        '<div style="font-size:13px;font-weight:bold;color:var(--navy);margin:10px 0 8px">Vaccine vial accountability '+locSuffix()+' '+modeCap()+'</div>'+
+        '<div style="font-size:13px;font-weight:bold;color:var(--navy);margin:10px 0 8px">Vaccine vial accountability '+locDay()+'</div>'+
         '<div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">'+
           kpi('Received',nd2(recv),'vials')+
           kpi('Used',nd2(used),'vials')+
