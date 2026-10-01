@@ -2260,7 +2260,7 @@ function paintSup(){
       if(!noRep.length) return '';
       const rows=noRep.map(w=>'<tr><td style="padding:5px 10px;border-top:1px solid var(--line)">'+w.name+'</td><td style="padding:5px 10px;border-top:1px solid var(--line);color:var(--mut)">'+(w.zone||'')+'</td><td style="padding:5px 10px;border-top:1px solid var(--line);color:var(--mut)">'+(w.region||'')+'</td></tr>').join('');
       return '<div class="card" style="padding:12px 14px;margin-bottom:12px;border-left:3px solid var(--amber)">'+
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:12px;color:var(--navy);font-weight:bold">Woredas with no Supervision Report (ODK): on any campaign day up to '+DAYS[dayIdx]+' ('+noRep.length+')</div><button class="dlbtn" onclick="dlSupNoReport()">Download CSV</button></div>'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:12px;color:var(--navy);font-weight:bold">Woredas with no Supervision Report (ODK) by '+DAYS[dayIdx]+' ('+noRep.length+')</div><button class="dlbtn" onclick="dlSupNoReport()">Download CSV</button></div>'+
         '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
         '<thead><tr style="text-align:left;color:var(--navy)"><th style="padding:4px 10px">Woreda</th><th style="padding:4px 10px">Zone</th><th style="padding:4px 10px">Region</th></tr></thead>'+
         '<tbody>'+rows+'</tbody></table></div>';
