@@ -1660,26 +1660,27 @@ function mkC(id,cfg){const el=document.getElementById(id);if(el){const c=new Cha
 // Self-contained (offline, no plugin dependency): draws a value label above each
 // bar. cfg.opts.barValueLabels = {fmt:fn(value,ctx)->string|null, flags:{dsIndex:{dataIndex:'\u26a0'}}}
 // fmt returning null/'' skips the label. flags draws a small marker above the bar.
-const _barValueLabels={id:'_barValueLabels',afterDatasetsDraw:function(chart){
-  const o=chart.options&&chart.options.barValueLabels; if(!o)return;
-  const ctx=chart.ctx; ctx.save();
-  ctx.font='600 10px '+FONT; ctx.textAlign='center'; ctx.textBaseline='bottom';
-  (chart.data.datasets||[]).forEach(function(ds,di){
-    if(o.onlyDataset!=null && di!==o.onlyDataset) return;
-    const meta=chart.getDatasetMeta(di); if(!meta||meta.hidden)return;
-    (meta.data||[]).forEach(function(bar,i){
-      if(!bar)return; const v=ds.data[i];
-      // value label
-      if(typeof o.fmt==='function'){ const s=o.fmt(v,{di:di,i:i});
-        if(s!=null&&s!==''){ ctx.fillStyle='#334155'; ctx.fillText(s, bar.x, bar.y-2); } }
-      // anomaly marker
-      if(o.flags&&o.flags[i]){ ctx.fillStyle='#DC2626'; ctx.font='700 12px '+FONT;
-        ctx.fillText(o.flags[i], bar.x, bar.y-13); ctx.font='600 10px '+FONT; }
+// NOT globally registered: included only on the specific charts that want it (a1, a5),
+// via their local plugins:[] array, so it never affects any other chart.
+const _barValueLabels={id:'_barValueLabels',afterDatasetsDraw:function(chart,args,opts){
+  try{
+    const o=(opts&&Object.keys(opts).length)?opts:(chart.config&&chart.config.options&&chart.config.options._barValueLabels);
+    if(!o)return;
+    const ctx=chart.ctx; ctx.save();
+    ctx.textAlign='center'; ctx.textBaseline='bottom';
+    (chart.data.datasets||[]).forEach(function(ds,di){
+      if(o.onlyDataset!=null && di!==o.onlyDataset) return;
+      const meta=chart.getDatasetMeta(di); if(!meta||meta.hidden)return;
+      (meta.data||[]).forEach(function(bar,i){
+        if(!bar)return; const v=ds.data[i];
+        if(typeof o.fmt==='function'){ const sx=o.fmt(v,{di:di,i:i});
+          if(sx!=null&&sx!==''){ ctx.font='600 10px '+FONT; ctx.fillStyle='#334155'; ctx.fillText(sx, bar.x, bar.y-2); } }
+        if(o.flags&&o.flags[i]){ ctx.font='700 12px '+FONT; ctx.fillStyle='#DC2626'; ctx.fillText(o.flags[i], bar.x, bar.y-13); }
+      });
     });
-  });
-  ctx.restore();
+    ctx.restore();
+  }catch(e){ /* never let a label error break the chart */ }
 }};
-try{ if(window.Chart&&Chart.register){Chart.register(_barValueLabels);} }catch(e){}
 // draws a % label at the tip of each bar segment: white rounded bg, black text.
 // percentages are of the per-category total (sum of that bar's stacked segments).
 const pctTipPlugin={id:'pctTip',afterDatasetsDraw(chart,args,opts){
@@ -2144,7 +2145,7 @@ function paintAdm(){
       card('Integrated services '+locSuffix(),'zero-dose & under-vaccinated vaccinated (counts)','<div class="chartbox"><canvas id="a3"></canvas></div>')+
       card('Vaccine utilization '+locSuffix(),'received, used, vials remaining (counts)','<div class="chartbox"><canvas id="a4"></canvas></div>')+
     '</div><div style="height:12px"></div>'+
-      card('Target, Children Vaccinated and Vaccines Used '+locSuffix(),'by '+(place.z?'woreda':(place.r?'zone':'region'))+' \u00b7 \u26a0 marks a possible data issue (vaccinated exceeds doses used, or exceeds target without matching utilization)','<div class="chartbox" style="height:300px"><canvas id="a5"></canvas></div>')+
+      card('Target, Children Vaccinated and Vaccines Used '+locSuffix(),'','<div class="chartbox" style="height:300px"><canvas id="a5"></canvas></div>')+
     (function(){
       const u1=sumOrNull(ws.map(w=>dv(w,'vaxU1'))), u15=sumOrNull(ws.map(w=>dv(w,'vax1to5')));
         const u1n=sumOrNull(ws.map(w=>dv(w,'vaxU1Not'))), u15n=sumOrNull(ws.map(w=>dv(w,'vax1to5Not')));
@@ -2179,8 +2180,8 @@ function paintAdm(){
   var _subLvl = place.z ? 'Woreda' : (place.r ? 'Zone' : 'Region');
   const a1opts=barOpt('%', covMax>100?Math.ceil(covMax/5)*5:100, false, 'Admin Coverage '+yAxisDay(), _subLvl);
   a1opts.plugins.tooltip={displayColors:false,callbacks:{title:(it)=>it[0].label,label:(ctx)=>(Math.round(ctx.parsed.y*10)/10)+'%'}};
-  a1opts.barValueLabels={fmt:function(v){return (v==null||isNaN(v))?null:(Math.round(v*10)/10)+'%';}};
-  mkC('a1',{type:'bar',data:{labels:bd.items.map(x=>x.name),datasets:[{data:bd.items.map(x=>x.cov),backgroundColor:'#1D8A6E',borderRadius:3}]},options:a1opts});
+  a1opts._barValueLabels={fmt:function(v){return (v==null||isNaN(v))?null:(Math.round(v*10)/10)+'%';}};
+  mkC('a1',{type:'bar',data:{labels:bd.items.map(x=>x.name),datasets:[{data:bd.items.map(x=>x.cov),backgroundColor:'#1D8A6E',borderRadius:3}]},options:a1opts,plugins:[_barValueLabels]});
   const tgt=ws.reduce((s,w)=>{const t=+w.tgt;return s+(isNaN(t)?0:t);},0);
   const dailyTgt=Math.round(tgt/4);
   // Bars use the SAME admin vax as the KPI and honor the daily/cumulative toggle. Show
@@ -2227,11 +2228,12 @@ function paintAdm(){
     });
     const a5opts=barOpt('',null,true,'Children ('+(curMode()==='daily'?'daily':'cumulative')+')',(place.z?'Woreda':(place.r?'Zone':'Region')));
     a5opts.plugins.tooltip={callbacks:{title:(it)=>it[0].label,label:(ctx)=>ctx.parsed.y==null?(ctx.dataset.label+': No data'):(ctx.dataset.label+': '+Number(ctx.parsed.y).toLocaleString()),afterBody:(items)=>{const i=items&&items[0]&&items[0].dataIndex; return (i!=null&&flags[i])?['\u26a0 Possible data issue: vaccinated exceeds doses used or target'] : [];}}};
+    a5opts._barValueLabels={flags:flags,fmt:function(){return null;}};
     mkC('a5',{type:'bar',data:{labels:labels,datasets:[
       {label:'Operational Target Pop',data:tgtArr,backgroundColor:'#2C5F8A',borderRadius:3,barPercentage:0.8,categoryPercentage:0.7},
       {label:'Children Vaccinated',data:vaxArr,backgroundColor:'#E8833A',borderRadius:3,barPercentage:0.8,categoryPercentage:0.7},
       {label:'Vaccines Used',data:usedArr,backgroundColor:'#94A3B8',borderRadius:3,barPercentage:0.8,categoryPercentage:0.7}
-    ]},options:Object.assign(a5opts,{barValueLabels:{flags:flags,fmt:function(){return null;}}})});
+    ]},options:a5opts,plugins:[_barValueLabels]});
   })();
 }
 function setMode(m){modeByTab[active]=m;paint();}
