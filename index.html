@@ -1654,7 +1654,7 @@ function bestFirst(items, key, higherIsBetter){
 }
 
 // ---- tabs ----
-const TABS=[{k:'sum',label:'Summary'},{k:'adm',label:'Admin'},{k:'sup',label:'Supervision'},{k:'im',label:'Independent monitoring'},{k:'sm',label:'Social Mobilization Supervision'},{k:'tri',label:'Data Triangulation (Priority List)'}];
+const TABS=[{k:'sum',label:'Summary'},{k:'adm',label:'Admin'},{k:'sup',label:'Supervision'},{k:'im',label:'In-process IM'},{k:'sm',label:'Social Mobilization Supervision'},{k:'tri',label:'Data Triangulation (Priority List)'}];
 let active='sum';
 const tabsEl=document.getElementById('tabs');
 function paintTabs(){tabsEl.innerHTML='';TABS.forEach(t=>{const b=document.createElement('button');b.className=active===t.k?'on':'';b.innerHTML=t.label;b.onclick=()=>{active=t.k;paintTabs();paint();};tabsEl.appendChild(b);});}
@@ -2324,8 +2324,8 @@ function paintSup(){
   page.innerHTML='<div class="sectit">Supportive Supervision of Vaccination Teams ('+placeName()+')</div>'+
     '<div class="notify-strong"><span class="ico">\u26a0\ufe0f</span><span>Scroll down and use the <b>Indicator</b> filter to select an indicator, or choose <b>All indicators</b> to view every indicator at once.</span></div>'+
     '<div class="cards">'+
-      kpi('Supervision Coverage ('+placeName()+')',pv(sup),supBand,supColor)+
-      kpi('Teams supervised',teamsSup.toLocaleString(),teamsPlan>0?('out of '+teamsPlan.toLocaleString()+' teams'):'planned teams N/A')+
+      kpi('Vaccination Team Supervision Coverage ('+placeName()+')',pv(sup),'Teams visited at least once across campaign days \u00f7 total teams'+(supBand?' \u00b7 '+supBand:''),supColor)+
+      kpi('Vaccination Teams Visited for Supervision (ODK reporting evidence)',teamsSup.toLocaleString(),teamsPlan>0?('out of '+teamsPlan.toLocaleString()+' teams'):'planned teams N/A')+
     '</div>'+
     '<div class="card" style="padding:12px 14px;margin-bottom:12px"><div style="font-size:12px;color:var(--navy);font-weight:bold;margin-bottom:6px">Types of teams supervised</div>'+typeChips+'</div>'+
     (function(){
@@ -2343,7 +2343,7 @@ function paintSup(){
       const noRep=ws.filter(noReported)
         .sort((a,b)=>((a.region||'')+(a.zone||'')+(a.name||'')).localeCompare((b.region||'')+(b.zone||'')+(b.name||'')));
       if(!noRep.length) return '';
-      const rows=noRep.map(w=>'<tr><td style="padding:5px 10px;border-top:1px solid var(--line)">'+w.name+'</td><td style="padding:5px 10px;border-top:1px solid var(--line);color:var(--mut)">'+(w.zone||'')+'</td><td style="padding:5px 10px;border-top:1px solid var(--line);color:var(--mut)">'+(w.region||'')+'</td></tr>').join('');
+      const rows=noRep.map(w=>'<tr><td style="padding:5px 10px;border-top:1px solid var(--line);color:#DC2626;font-weight:bold">'+w.name+'</td><td style="padding:5px 10px;border-top:1px solid var(--line);color:var(--mut)">'+(w.zone||'')+'</td><td style="padding:5px 10px;border-top:1px solid var(--line);color:var(--mut)">'+(w.region||'')+'</td></tr>').join('');
       return '<div class="card" style="padding:12px 14px;margin-bottom:12px;border-left:3px solid var(--amber)">'+
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:12px;color:var(--navy);font-weight:bold">Woredas with no Supervision Report (ODK) by '+DAYS[dayIdx]+' ('+noRep.length+')</div><button class="dlbtn" onclick="dlSupNoReport()">Download CSV</button></div>'+
         '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
@@ -2421,7 +2421,9 @@ function paintIM(){
   const notFMRate=any&&A.present>0?Math.round(1000*A.notFM/A.present)/10:null;
 
   // shared header + toggle + the not-finger-marked trio (applies to both inside and outside)
-  let html='<div class="sectit">Independent monitoring</div><div class="secsub">inside and outside HH, shown separately · '+DAYS[dayIdx]+' (daily)</div><div class="scope">'+scopeLabel()+'</div>'+
+  let html='<div class="sectit">In-process Independent Monitoring ('+placeName()+')</div>'+
+    '<div class="secsub">Intra-campaign (in-process) monitoring only, inside and outside HH shown separately</div>'+
+    '<div style="font-size:11.5px;color:var(--mut);font-style:italic;margin:2px 0 12px;line-height:1.4">In-process monitoring is carried out while the campaign is ongoing, so gaps can be acted on during the campaign. End-process monitoring is a post-campaign measure and is not shown here.</div>'+
     '<div class="seg"><button class="'+(imTab==='inside'?'on':'')+'" onclick="imPick(\'inside\')">Inside HH</button><button class="'+(imTab==='outside'?'on':'')+'" onclick="imPick(\'outside\')">Outside HH</button></div>';
 
   if(isOut){
@@ -2565,7 +2567,7 @@ function imRegionTable(){
   rows+='<tr class="tot"'+((tp!=null&&tp>=IM_MISS)?' style="background:#ffc0c0;font-weight:bold"':' style="font-weight:bold"')+'><td style="text-align:left">Grand total</td><td>'+hhLabel+'</td><td>'+day+'</td><td>'+tT.toLocaleString()+'</td><td>'+tM.toLocaleString()+'</td><td>'+(tp==null?'No Data':tp+'%')+'</td></tr>';
   const missedHdr=imTab==='inside'?'Children Missed':'Not finger-marked';
   const pctHdr='% '+(imTab==='inside'?'Missed':'Not-FM');
-  return '<div class="rsec">Independent monitoring by region ('+hhLabel+', '+day+')</div>'+
+  return '<div class="rsec">In-process Independent Monitoring by region ('+hhLabel+', '+day+')</div>'+
     '<table class="rtab"><thead><tr><th style="text-align:left">Region</th><th>Household Level</th><th>Day</th><th>Children Seen</th><th>'+missedHdr+'</th><th>'+pctHdr+'</th></tr></thead><tbody>'+rows+'</tbody></table>'+
     '<div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 14px">'+
       '<div style="font-size:11px;color:var(--mut)">Rows at or above 5% are highlighted. Use + to expand a region into its woredas.</div>'+
