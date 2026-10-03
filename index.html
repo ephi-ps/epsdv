@@ -1791,7 +1791,7 @@ function paintSum(){
   const dayCap=DAYS[dayIdx];
   const cumCap='cumulative as at '+dayCap;
   const dayOnly=dayCap+' only';
-  function modeCap(){return curMode()==='daily'?('(Daily: '+DAYS[dayIdx]+' only)'):('(Cumulative: as of '+DAYS[dayIdx]+')');}
+  function modeCap(){return curMode()==='daily'?('('+DAYS[dayIdx]+' only)'):(dayIdx===0?('('+DAYS[dayIdx]+')'):('(as of '+DAYS[dayIdx]+')'));}
   const u5u1=sumOrNull(ws.map(w=>dv(w,'vaxU1')));
   // vaccine accountability: received vs accounted (used+partial+good+broken+lost); lost flagged
   const vRecv=sumOrNull(ws.map(w=>dv(w,'vialRecv')));
@@ -1849,15 +1849,15 @@ function paintSum(){
 // ---- National region-rollup tables (always ALL regions, cumulative through selected day) ----
 // Aggregates D.woredas by region regardless of the current scope/drill, so these tables
 // always present the across-board picture as of the selected day.
-function modeCap(){return curMode()==='daily'?('(Daily: '+DAYS[dayIdx]+' only)'):('(Cumulative: as of '+DAYS[dayIdx]+')');}
+function modeCap(){return curMode()==='daily'?('('+DAYS[dayIdx]+' only)'):(dayIdx===0?('('+DAYS[dayIdx]+')'):('(as of '+DAYS[dayIdx]+')'));}
 // Current location in brackets for chart titles and box headers.
 function locSuffix(){var p=placeName();return p==='National'?'(All Implementing Areas)':('('+p+')');}
 // Dynamic day/mode label for chart y-axis titles. Daily -> (Day X);
-// cumulative on Day 1 -> (Day 1); cumulative beyond -> (Day 1 to Day X).
-function yAxisDay(){var d=DAYS[dayIdx];if(curMode()==='daily')return '('+d+')';return dayIdx===0?'(Day 1)':('(Day 1 to '+d+')');}
-// Single-bracket location + day phrase for box headers, e.g. (Gambella: Day 1 to Mop-up 2)
+// cumulative on Day 1 -> (Day 1); cumulative beyond -> (as of Day X).
+function yAxisDay(){var d=DAYS[dayIdx];if(curMode()==='daily')return '('+d+' only)';return dayIdx===0?'('+d+')':('(as of '+d+')');}
+// Single-bracket location + day phrase for box headers, e.g. (Gambella: as of Mop-up 2)
 // or (Gambella: Mop-up 2 only). National shows "All Implementing Areas".
-function locDay(){var p=placeName();var loc=(p==='National')?'All Implementing Areas':p;var d=DAYS[dayIdx];var ph=(curMode()==='daily')?(d+' only'):(dayIdx===0?'Day 1':('Day 1 to '+d));return '('+loc+': '+ph+')';}
+function locDay(){var p=placeName();var loc=(p==='National')?'All Implementing Areas':p;var d=DAYS[dayIdx];var ph=(curMode()==='daily')?(d+' only'):(dayIdx===0?d:('as of '+d));return '('+loc+': '+ph+')';}
 function redKpiBorder(l,n,unit){const alarm=(n!=null&&n>0);const vc=alarm?'var(--L1)':'var(--navy)';const v=(n==null?'No Data':n.toLocaleString());return '<div class="kpi" style="border:1.5px solid var(--L1)"><div class="l">'+l+'</div><div class="v" style="color:'+vc+'">'+v+'</div><div class="d" style="color:var(--mut)">'+unit+'</div></div>';}
 var admExpanded={};
 function admToggleRegion(r){admExpanded[r]=!admExpanded[r];paint();}
@@ -1958,14 +1958,14 @@ function regionCBSecTables(){
         rows+='<tr><td style="text-align:left;padding-left:30px;color:var(--ink)">'+wd.name+(wd.zone?' <span style="color:var(--mut)">('+wd.zone+')</span>':'')+'</td><td>'+wt.toLocaleString()+'</td><td>'+_n0(wv==null?null:wv)+'</td><td>'+_pctND(wv==null?null:wv,wt)+'</td></tr>';
       }); }
     });
-    const valHdr=daily?('Children vaccinated ('+day+')'):('Children vaccinated (up to '+day+')');
+    const valHdr=daily?('Children vaccinated ('+day+' only)'):(dayIdx===0?('Children vaccinated ('+day+')'):('Children vaccinated (as of '+day+')'));
     if(!present.length){
-      return '<div class="rsec">'+title+'</div>'+
+      return '<div class="rsec">'+title+' '+modeCap()+'</div>'+
         '<table class="rtab"><thead><tr><th style="text-align:left">Region</th><th>Total target</th><th>'+valHdr+'</th><th>Admin Coverage</th></tr></thead>'+
         '<tbody><tr><td colspan="4" style="text-align:center;color:var(--mut);padding:10px">No Data</td></tr></tbody></table>';
     }
     rows+='<tr class="tot"><td style="text-align:left">Total</td><td>'+tT.toLocaleString()+'</td><td>'+(anyV?tV.toLocaleString():'No Data')+'</td><td><b>'+(anyV?pct(tV,tT):'No Data')+'</b></td></tr>';
-    return '<div class="rsec">'+title+'</div>'+
+    return '<div class="rsec">'+title+' '+modeCap()+'</div>'+
       '<table class="rtab"><thead><tr><th style="text-align:left">Region</th><th>Total target</th><th>'+valHdr+'</th><th>Admin Coverage</th></tr></thead><tbody>'+rows+'</tbody></table>'+
       '<div style="font-size:11px;color:var(--mut);margin-bottom:6px">Use + to expand a region into its settlements/woredas.</div>';
   }
@@ -2168,7 +2168,7 @@ function paintAdm(){
   const cumVax  =_labels.map((_,i)=> i<=dayIdx ? _sumVaxC(i) : null);
   const series = (curMode()==='daily') ? dailyVax : cumVax;
   const tgtRef = (curMode()==='daily') ? dailyTgt : tgt;
-  const a2opts=barOpt('',null,true,'Children vaccinated '+yAxisDay(),'Campaign Day');
+  const a2opts=barOpt('',null,true,'Children vaccinated (relative to '+(curMode()==='daily'?'daily':'overall')+' target)','Campaign Day');
   a2opts.plugins.tooltip={displayColors:false,callbacks:{title:(it)=>it[0].label,label:(ctx)=>ctx.dataset.type==='line'?('Target: '+Number(ctx.parsed.y).toLocaleString()):(ctx.parsed.y==null?'No data':((ctx.dataset.label?ctx.dataset.label+': ':'')+Number(ctx.parsed.y).toLocaleString()))}};
   mkC('a2',{data:{labels:_labels,datasets:[
     {type:'bar',label:(curMode()==='daily'?'U5 vaccinated/day':'U5 vaccinated (cumulative)'),data:series,backgroundColor:'#2C5F8A',borderRadius:3},
