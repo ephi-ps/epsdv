@@ -2216,24 +2216,19 @@ function paintAdm(){
       const vx=dv(w,'vax'); if(vx!=null){g[k].vax+=vx;g[k].anyVax=true;}
       const us=dv(w,'vialUsed'); if(us!=null){g[k].used+=us;g[k].anyUsed=true;}
     });
-    const labels=order, tgtArr=[],vaxArr=[],usedArr=[],flags={};
-    order.forEach(function(k,i){ const a=g[k];
+    const labels=order, tgtArr=[],vaxArr=[],usedArr=[];
+    order.forEach(function(k){ const a=g[k];
       tgtArr.push(a.tgt||0);
       vaxArr.push(a.anyVax?a.vax:null);
       usedArr.push(a.anyUsed?a.used:null);
-      // anomaly checks (only when the relevant values exist)
-      const vaxGtUsed = a.anyVax&&a.anyUsed&&a.vax>a.used;
-      const vaxGtTgtNoUtil = a.anyVax&&a.tgt>0&&a.vax>a.tgt&&(!a.anyUsed||a.used<a.vax);
-      if(vaxGtUsed||vaxGtTgtNoUtil) flags[i]='\u26a0';
     });
-    const a5opts=barOpt('',null,true,'Children ('+(curMode()==='daily'?'daily':'cumulative')+')',(place.z?'Woreda':(place.r?'Zone':'Region')));
-    a5opts.plugins.tooltip={callbacks:{title:(it)=>it[0].label,label:(ctx)=>ctx.parsed.y==null?(ctx.dataset.label+': No data'):(ctx.dataset.label+': '+Number(ctx.parsed.y).toLocaleString()),afterBody:(items)=>{const i=items&&items[0]&&items[0].dataIndex; return (i!=null&&flags[i])?['\u26a0 Possible data issue: vaccinated exceeds doses used or target'] : [];}}};
-    a5opts._barValueLabels={flags:flags,fmt:function(){return null;}};
+    const a5opts=barOpt('',null,true,'Target Pop, Children Vacc, Vials Opened ('+(curMode()==='daily'?'daily':'cumulative')+')',(place.z?'Woreda':(place.r?'Zone':'Region')));
+    a5opts.plugins.tooltip={callbacks:{title:(it)=>it[0].label,label:(ctx)=>ctx.parsed.y==null?(ctx.dataset.label+': No data'):(ctx.dataset.label+': '+Number(ctx.parsed.y).toLocaleString())}};
     mkC('a5',{type:'bar',data:{labels:labels,datasets:[
-      {label:'Operational Target Pop',data:tgtArr,backgroundColor:'#2C5F8A',borderRadius:3,barPercentage:0.8,categoryPercentage:0.7},
-      {label:'Children Vaccinated',data:vaxArr,backgroundColor:'#E8833A',borderRadius:3,barPercentage:0.8,categoryPercentage:0.7},
-      {label:'Vaccines Used',data:usedArr,backgroundColor:'#94A3B8',borderRadius:3,barPercentage:0.8,categoryPercentage:0.7}
-    ]},options:a5opts,plugins:[_barValueLabels]});
+      {label:'Target Pop',data:tgtArr,backgroundColor:'#2C5F8A',borderRadius:3,barPercentage:0.8,categoryPercentage:0.7},
+      {label:'Children Vaccinated',data:vaxArr,backgroundColor:'#1D8A6E',borderRadius:3,barPercentage:0.8,categoryPercentage:0.7},
+      {label:'Vials Opened',data:usedArr,backgroundColor:'#E8833A',borderRadius:3,barPercentage:0.8,categoryPercentage:0.7}
+    ]},options:a5opts});
   })();
 }
 function setMode(m){modeByTab[active]=m;paint();}
