@@ -2607,7 +2607,7 @@ const SM=[
 ];
 let smSel='infDay';
 function paintSM(){
-  const sel=SM.find(s=>s.k===smSel);const opts=SM.map(s=>'<option value="'+s.k+'" '+(s.k===smSel?'selected':'')+'>'+s.l+'</option>').join('');
+  const sel=SM.find(s=>s.k===smSel)||SM[0];const opts=SM.map(s=>'<option value="'+s.k+'" '+(s.k===smSel?'selected':'')+'>'+s.l+'</option>').join('');
   const ws=scoped();
   const hh=sumOrNull(ws.map(w=>dv(w,'hhVisited'))), gd=sumOrNull(ws.map(w=>dv(w,'groupDisc'))), h2=sumOrNull(ws.map(w=>dv(w,'h2h')));
   const ndm=(v)=>v==null?'No Data':v.toLocaleString();
@@ -2640,18 +2640,40 @@ function paintSM(){
   const tot=yTot+nTot;
   const yesPct = tot>0 ? Math.round(1000*yTot/tot)/10 : null;
   const noPct = yesPct==null?null:Math.round((100-yesPct)*10)/10;
-  page.innerHTML='<div class="sectit">Social Mobilization</div><div class="secsub">caregiver outreach and awareness · '+(curMode()==='cumulative'?'cumulative':'daily')+'</div><div class="scope">'+scopeLabel()+'</div>'+
+  // ===== "All indicators" view: one mini donut per indicator, same counts as the single view =====
+  const _smAll=SM.map(function(s){ let y=0,n=0; ws.forEach(function(w){const c=smCounts(w,s.k); if(c){y+=c.yes;n+=c.no;}}); return {s:s,y:y,n:n,tot:y+n}; });
+  function smAllIndicators(){
+    const cards=_smAll.map(function(d,idx){
+      const t=d.tot; const yp=t>0?Math.round(1000*d.y/t)/10:null; const np=yp==null?null:Math.round((100-yp)*10)/10;
+      const inv=(d.s.k==='poorCov'); const headP=inv?np:yp; const headL=inv?'No':'Yes';
+      const body = t===0 ? '<div style="padding:24px 8px;text-align:center;color:var(--mut);font-size:11px">No report data</div>'
+        : '<div class="donutwrap"><div class="donutbox" style="width:120px;height:120px"><canvas id="smA'+idx+'"></canvas><div class="donutctr"><div class="p" style="font-size:16px">'+headP+'%</div><div class="l" style="font-size:10px">'+headL+'</div></div></div></div>'
+          +'<div style="font-size:10.5px;color:var(--mut);text-align:center;margin-top:4px">Yes '+yp+'% \u00b7 No '+np+'% \u00b7 n='+t.toLocaleString()+'</div>';
+      return '<div class="card" style="padding:10px"><div style="font-size:11.5px;font-weight:bold;color:var(--navy);margin-bottom:6px;min-height:28px">'+d.s.l+'</div>'+body+'</div>';
+    }).join('');
+    return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">'+cards+'</div>';
+  }
+  function smAllRender(){
+    _smAll.forEach(function(d,idx){ if(d.tot<=0)return; const inv=(d.s.k==='poorCov');
+      mkC('smA'+idx,{type:'doughnut',data:{datasets:[{data:[d.y,d.n],backgroundColor:(inv?['#DC2626','#1D8A6E']:['#1D8A6E','#DC2626']),borderWidth:0}]},options:donutOpt('72%')});
+    });
+  }
+  page.innerHTML='<div class="sectit">Social Mobilization Supervision ('+placeName()+')</div>'+
+    '<div class="secsub">caregiver outreach and awareness</div>'+
     modeToggle()+
     '<div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">'+
       kpi('HHs visited by social mobilizers',ndm(hh),'households')+
       kpi('Group discussion participants',ndm(gd),'parents/caregivers in community meetings')+
       kpi('Reached home-to-home / IPC',ndm(h2),'parents/caregivers reached')+
     '</div>'+
-    '<select class="indsel" onchange="smPick(this.value)" style="margin-bottom:12px">'+opts+'</select>'+
+    '<div class="notify-strong"><span class="ico">\u26a0\ufe0f</span><span>Scroll down and use the <b>Indicator</b> filter to select an indicator, or choose <b>All indicators</b> to view every indicator at once.</span></div>'+
+    '<div><span class="indlabel">Indicator:</span><select class="indsel prominent" onchange="smPick(this.value)" style="margin-bottom:12px"><option value="__ALL__" '+(smSel==='__ALL__'?'selected':'')+'>All indicators</option>'+opts+'</select></div>'+
+    (smSel==='__ALL__' ? smAllIndicators() :
     '<div class="grid2" style="grid-template-columns:0.85fr 1.15fr;align-items:center">'+
-      card(sel.l,'Yes vs No across households',tot===0?'<div style="padding:30px;text-align:center;color:var(--mut);font-size:12px">No report data</div>':'<div class="donutwrap"><div class="donutbox"><canvas id="sm1"></canvas><div class="donutctr"><div class="p">'+(smSel==='poorCov'?noPct:yesPct)+'%</div><div class="l">'+(smSel==='poorCov'?'No':'Yes')+'</div></div></div>'+'<div class="leg"><div class="legtot">ODK reports = '+tot.toLocaleString()+'</div><div><span class="sw" style="background:'+(smSel==='poorCov'?'#DC2626':'#1D8A6E')+'"></span>Yes ('+yesPct+'%)</div><div><span class="sw" style="background:'+(smSel==='poorCov'?'#1D8A6E':'#DC2626')+'"></span>No ('+noPct+'%)</div></div></div>')+
+      card(sel.l,'Count of Yes vs No across households '+modeCap(),tot===0?'<div style="padding:30px;text-align:center;color:var(--mut);font-size:12px">No report data</div>':'<div class="donutwrap"><div class="donutbox"><canvas id="sm1"></canvas><div class="donutctr"><div class="p">'+(smSel==='poorCov'?noPct:yesPct)+'%</div><div class="l">'+(smSel==='poorCov'?'No':'Yes')+'</div></div></div>'+'<div class="leg"><div class="legtot">ODK reports = '+tot.toLocaleString()+'</div><div><span class="sw" style="background:'+(smSel==='poorCov'?'#DC2626':'#1D8A6E')+'"></span>Yes ('+yesPct+'%)</div><div><span class="sw" style="background:'+(smSel==='poorCov'?'#1D8A6E':'#DC2626')+'"></span>No ('+noPct+'%)</div></div></div>')+
       card(sel.l+' by '+(place.w?'settlement type':(place.z?'woreda':(place.r?'zone':'region'))),'number of households reported','<div class="chartbox"><canvas id="sm2"></canvas></div>')+
-    '</div>';
+    '</div>');
+  if(smSel==='__ALL__'){ page.innerHTML += regionSocMobTable(); smAllRender(); return; }
   page.innerHTML += regionSocMobTable();
   {const _sm1cols=(smSel==='poorCov')?['#DC2626','#1D8A6E']:['#1D8A6E','#DC2626'];
    if(tot>0) mkC('sm1',{type:'doughnut',data:{datasets:[{data:[yTot,nTot],backgroundColor:_sm1cols,borderWidth:0}]},options:donutOpt('72%')});}
