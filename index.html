@@ -2155,7 +2155,6 @@ function paintAdm(){
     (function(){
       const u1=sumOrNull(ws.map(w=>dv(w,'vaxU1'))), u15=sumOrNull(ws.map(w=>dv(w,'vax1to5')));
         const u1n=sumOrNull(ws.map(w=>dv(w,'vaxU1Not'))), u15n=sumOrNull(ws.map(w=>dv(w,'vax1to5Not')));
-        const zdI=sumOrNull(ws.map(w=>dv(w,'zerodose'))), zdV=sumOrNull(ws.map(w=>dv(w,'zdVax')));
       const recv=sumOrNull(ws.map(w=>dv(w,'vialRecv'))),used=sumOrNull(ws.map(w=>dv(w,'vialUsed'))),part=sumOrNull(ws.map(w=>dv(w,'vialPartial'))),good=sumOrNull(ws.map(w=>dv(w,'vialGood'))),broken=sumOrNull(ws.map(w=>dv(w,'vialBroken'))),vvm=sumOrNull(ws.map(w=>dv(w,'vialVVM'))),lost=sumOrNull(ws.map(w=>dv(w,'vialLost')));
       const nd2=(v)=>v==null?'No Data':v.toLocaleString();
       return '<div style="height:14px"></div>'+
@@ -2165,11 +2164,6 @@ function paintAdm(){
           redKpiBorder('0 to 11 Months Not Vaccinated',u1n,'')+
           kpi('12 to 59 Months Vaccinated',nd2(u15),'')+
           redKpiBorder('12 to 59 Months Not Vaccinated',u15n,'')+
-        '</div>'+
-        '<div style="font-size:13px;font-weight:bold;color:var(--navy);margin:10px 0 8px">Zero dose '+locDay()+'</div>'+
-        '<div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">'+
-          kpi('Zero dose identified',nd2(zdI),'')+
-          kpi('Zero dose vaccinated',nd2(zdV),'')+
         '</div>'+
         '<div style="font-size:13px;font-weight:bold;color:var(--navy);margin:10px 0 8px">Vaccine vial accountability '+locDay()+'</div>'+
         '<div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">'+
