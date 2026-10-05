@@ -967,7 +967,7 @@ const IM_MISS=(_TH.imMiss!=null)?_TH.imMiss:5, WASTE=(_TH.waste!=null)?_TH.waste
     var cov=rec.cov, sup=rec.sup, imIn=rec.imIn, imOut=rec.imOut;
     var bar=(COVB[dayIdx]!=null)?COVB[dayIdx]:90;
     var admIssue=(cov!=null && cov<bar);
-    var imIssue=((imIn!=null&&imIn>=IMM)||(imOut!=null&&imOut>=IMM));
+    var imIssue=(imIn!=null&&imIn>=IMM);  // Inside HH only drives priority
     var issue=admIssue||imIssue;
     var supHigh=(sup!=null && sup>=SUPH);
     // No admin data AND no IM signal that day -> "No admin data" (neutral), not a level.
@@ -1075,7 +1075,7 @@ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_L
 L.geoJSON(D.basemap,{interactive:false,style:{color:'#9aa6b2',weight:0.7,fill:false}}).addTo(map);
 // persistent national outline
 const adm0=L.geoJSON(D.adm0,{interactive:false,style:{color:'#334155',weight:2,fill:false,dashArray:'0'}}).addTo(map);
-// The map no longer has its own Day selector — the universal Day selector drives the
+// The map no longer has its own Day selector; the universal Day selector drives the
 // map's day via window.__triPushDay/__triOnNav. Guard in case the element is absent.
 const sel=document.getElementById('dayf');
 if(sel){
@@ -1184,20 +1184,13 @@ function dAddlRemark(d){const r=[];
   if(eo!=null&&eo>IM_MISS)r.push('end-process outside HH ('+eo+'%)');
   return r;}
 // dynamic IM label: inside/outside stay SEPARATE, never combined/averaged.
-function dIMLabel(d){const hi=d.imIn!=null, ho=d.imOut!=null;
-  if(hi&&ho)return 'IM (Inside+Outside HH) '+d.imIn+'%'+(d.imIn>=IM_MISS?' (high)':'')+' / '+d.imOut+'%'+(d.imOut>=IM_MISS?' (high)':'');
-  if(hi)return 'IM (Inside HH) '+d.imIn+'%'+(d.imIn>=IM_MISS?' (high)':'');
-  if(ho)return 'IM (Outside HH) '+d.imOut+'%'+(d.imOut>=IM_MISS?' (high)':'');
-  return 'IM N/A';}
-// label part only (e.g. "IM (Inside HH)") and value part only (e.g. "14% (high)")
-function dIMName(d){const hi=d.imIn!=null,ho=d.imOut!=null;
-  if(hi&&ho)return 'IM (Inside+Outside HH)'; if(hi)return 'IM (Inside HH)'; if(ho)return 'IM (Outside HH)'; return 'IM';}
-function dIMValue(d){const hi=d.imIn!=null,ho=d.imOut!=null;
-  if(hi&&ho)return d.imIn+'%'+(d.imIn>=IM_MISS?' (high)':'')+' / '+d.imOut+'%'+(d.imOut>=IM_MISS?' (high)':'');
-  if(hi)return d.imIn+'%'+(d.imIn>=IM_MISS?' (high)':''); if(ho)return d.imOut+'%'+(d.imOut>=IM_MISS?' (high)':''); return 'N/A';}
+// In-process, Inside HH only (Outside HH is not used for priority).
+function dIMLabel(d){ if(d.imIn!=null) return 'In-process children not finger-marked (Inside HH) '+d.imIn+'%'+(d.imIn>=IM_MISS?' (high)':''); return 'In-process IM N/A';}
+function dIMName(d){ return 'In-process children not finger-marked (Inside HH)';}
+function dIMValue(d){ return d.imIn!=null?(d.imIn+'%'+(d.imIn>=IM_MISS?' (high)':'')):'N/A';}
 function dRemarksLine(d){const p=[];
   p.push('Admin Coverage '+pv(d.cov));
-  if(d.imIn!=null||d.imOut!=null)p.push(dIMLabel(d).replace(/^IM/,'IM data'));
+  if(d.imIn!=null && d.imIn>=IM_MISS)p.push('In-process children not finger-marked (Inside HH) '+d.imIn+'%');
   p.push('Supervision Coverage '+pv(d.sup));
   if(d.prio===1||d.prio===2){const ob=dAddlObs(d);if(ob.length)p.push('Additional observations: '+ob.join(', '));const ar=dAddlRemark(d);if(ar.length)p.push('Additional remark: '+ar.join(', '));}
   return p.join('  \u00b7  ');}
@@ -1245,9 +1238,8 @@ function prioDef(d){
   // Admin: state low / adequate when reported; 'no admin data' when null (never adequate).
   if(d.cov==null) parts.push('no admin data ('+DAY+')');
   else parts.push((admLow?'low admin coverage (':'adequate admin coverage (')+covTxt+')');
-  // IM streams only when each actually fails
-  if(inBad)  parts.push('Inside-HH IM missed children >='+IM_MISS+'% (actual '+d.imIn+'%)');
-  if(outBad) parts.push('Outside-HH IM missed children >='+IM_MISS+'% (actual '+d.imOut+'%)');
+  // In-process Inside-HH only drives priority
+  if(inBad)  parts.push('In-process children not finger-marked (Inside HH) >='+IM_MISS+'% (actual '+d.imIn+'%)');
   // Supervision always stated, by level
   const supLow=(d.prio===1||d.prio===3);
   parts.push((supLow?'low supervision coverage (':'high supervision coverage (')+supTxt+')');
@@ -1281,7 +1273,7 @@ function tipHTML(p){
 function detailHTML(p){const d=md(p);
  const cov=pv(d.cov, 'No Data ('+DAY+')'),lvlc=(d.prio>0?PC[d.prio]:'#94A3B8');
  const ob=(d.prio===1||d.prio===2)?dAddlObs(d):[],ar=(d.prio===1||d.prio===2)?dAddlRemark(d):[];
- const imRow=(d.imIn!=null||d.imOut!=null)?`<tr><td>${dIMName(d).replace(/^IM/,'IM data')}</td><td>${dIMValue(d)}</td></tr>`:'';
+ const imRow=(d.imIn!=null&&d.imIn>=IM_MISS)?`<tr><td>${dIMName(d)}</td><td>${dIMValue(d)}</td></tr>`:'';
  let extra='';
  if(ob.length)extra+=`<div class="k">Additional observations</div><div class="v">${ob.join(', ')}</div>`;
  if(ar.length)extra+=`<div class="k">Additional remark</div><div class="v">${ar.join(', ')}</div>`;
@@ -1371,7 +1363,7 @@ function list(fs){document.getElementById('ltitle').textContent={region:'Regions
  const body=document.getElementById('lbody');body.innerHTML='';
  part.forEach(f=>{const p=f.properties,d=md(p),cov=pv(d.cov, 'No Data ('+DAY+')');
    const el=document.createElement('div');el.className='row2'+(canDrill(p)?' dr':'');
-   const imShort=(d.imIn!=null||d.imOut!=null)?dIMLabel(d).replace(/^IM/,'IM data'):'';
+   const imShort=(d.imIn!=null&&d.imIn>=IM_MISS)?dIMLabel(d):'';
    el.innerHTML=`<div class="tp"><span class="nm">${p.kind==='woreda'?starName(p.name):p.name}</span>
      <span class="pill" style="background:${PC[d.prio]}">${d.plabel}</span>${canDrill(p)?'<span class="chev">&#8250;</span>':''}</div>
      <div class="mt"><span>Admin cov <b>${cov}</b></span>${imShort?'<span>'+imShort+'</span>':''}<span>Supv cov <b>${pv(d.sup)}</b></span><span>Supervision visits <b>${d.n!=null?Number(d.n).toLocaleString():'0'}</b></span></div>
@@ -1513,7 +1505,7 @@ function dm(w){return w.d[dayIdx];}
 const _RATE_FIELDS={cov:1,sup:1,wast:1,imIn:1,imOut:1,smob:1,prep:1};
 function dv(w,field){const m=dm(w);if(curMode()==='daily'){const d=m[field+'D'];if(d!=null)return d;if(_RATE_FIELDS[field])return m[field]==null?null:m[field];const prev=(dayIdx>0&&w.d[dayIdx-1])?w.d[dayIdx-1][field]:0;const cur=m[field];return cur==null?null:cur-(prev||0);}return m[field];}
 function admIssue(w){const c=dm(w).cov;return c!=null&&c<COVBAR[dayIdx];}
-function imIssue(w){const m=dm(w);return (m.imIn!=null&&m.imIn>=IM_MISS)||(m.imOut!=null&&m.imOut>=IM_MISS);}
+function imIssue(w){const m=dm(w);return (m.imIn!=null&&m.imIn>=IM_MISS);}  // Inside HH only drives priority
 function hardIssue(w){return admIssue(w)||imIssue(w);}
 function supHigh(w){return dm(w).sup!=null&&dm(w).sup>=SUP_HIGH;}
 function lvl(w){
@@ -1551,7 +1543,7 @@ function imLabel(m){const hi=m.imIn!=null,ho=m.imOut!=null;
   return 'IM N/A';}
 function remarks(w){const m=dm(w);const p=[];
   p.push('Admin Coverage '+pv(m.cov)+(admIssue(w)?' (low)':''));
-  if(m.imIn!=null||m.imOut!=null)p.push(imLabel(m).replace(/^IM/,'IM data'));
+  if(m.imIn!=null && m.imIn>=IM_MISS) p.push('In-process children not finger-marked (Inside HH) '+m.imIn+'%');
   p.push('Supervision Coverage '+(miss(m.sup)?'N/A':pv(m.sup)+(supHigh(w)?'':' (low)')));
   const l=lvl(w);if(l<=2){const ob=addlObs(w);if(ob.length)p.push('Additional observations: '+ob.join(', '));const ar=addlRemark(w);if(ar.length)p.push('Additional remark: '+ar.join(', '));}
   return p.join('  \u00b7  ');}
@@ -1854,15 +1846,17 @@ function paintSum(){
   html+=slide7Panel();
   html+='<div class="prisep" style="height:18px"></div>'+'<div class="sectit" style="margin-top:6px">Priority</div>'+'<div class="secsub">'+(place.w?(place.w+' Woreda - Priority Level'):place.z?(place.z+' Zone - Priority Level of Woredas'):place.r?(place.r+' Region - Priority Level of Woredas'):'All Implementing Regions - Priority Level of Woredas')+'</div>';
   html+='<div class="grid2" style="grid-template-columns:1.25fr 0.75fr;align-items:start">';
-  html+='<div class="plist" style="max-height:360px"><div class="sh"><span class="t">Priority list · '+placeName()+'</span><button class="dlbtn" onclick="dlList()">Download CSV</button></div><div class="pscroll" id="sumpl"></div></div>';
+  var _priCount=ws.map(w=>lvl(w)).filter(l=>l>0).length;
+  html+='<div class="plist" style="max-height:360px"><div class="sh"><span class="t">Priority list ('+_priCount+') · '+placeName()+'</span><button class="dlbtn" onclick="dlList()">Download CSV</button></div><div class="pscroll" id="sumpl"></div></div>';
   html+=card('Priority Level for Follow Up (Woredas)','triangulation of Admin Coverage, IM (where available) and Supervision Coverage','<div class="chartbox" style="height:240px"><canvas id="smix"></canvas></div>');
   html+='</div>';
   page.innerHTML=html;
   const pl=document.getElementById('sumpl');
-  ws.map(w=>({w,l:lvl(w)})).sort((a,b)=>a.l-b.l).forEach(({w,l})=>{
-    const star='';
+  ws.map(w=>({w,l:lvl(w)})).filter(x=>x.l>0).sort((a,b)=>a.l-b.l).forEach(({w,l})=>{
+    const loc=[w.zone,w.region].filter(Boolean).join(', ');
+    const nm=w.name+(loc?(' <span style="color:var(--mut);font-weight:normal">('+loc+')</span>'):'');
     const row=document.createElement('div');row.className='prow';
-    row.innerHTML='<div class="top"><span class="nm">'+w.name+star+'</span><span class="lvl" style="background:'+PC[l]+'22;color:'+PC[l]+'">'+PT[l]+'</span></div><div class="rem">'+remarks(w)+'</div><div class="act">Action: '+action(w)+'</div>';
+    row.innerHTML='<div class="top"><span class="nm">'+nm+'</span><span class="lvl" style="background:'+PC[l]+'22;color:'+PC[l]+'">'+PT[l]+'</span></div><div class="rem">'+remarks(w)+'</div><div class="act">Action: '+action(w)+'</div>';
     pl.appendChild(row);
   });
   const lvlExplain={
@@ -2134,6 +2128,473 @@ function regionSocMobTable(){
     '<div style="font-size:11px;color:var(--mut);margin-bottom:6px">Use + to expand a region into its woredas (zone in brackets). Select rows to copy.</div>';
 }
 
+// ============================ ADMIN FLAG REPORT ENGINE ============================
+// Rule-based "Summary of Follow-up Action Points". Cumulative as of the selected day.
+// Admin coverage is measured against the expected cumulative pace for the day
+// (D.covBar[dayIdx]): not flagged at/above pace; flagged (black) within 5 points below
+// pace; red when more than 5 points below pace. Other checks use their own thresholds.
+// Dynamic to the selected LOCATION: National groups by region; region/zone lists its
+// woredas; woreda shows itself (no table). Woreda names are bold; red marks chronic
+// (colour only, not bold). Only woredas meeting a threshold are listed. No downloads;
+// users screenshot or save as they wish. Doses/vial from the round vaccine type
+// (bOPV=20, nOPV2=50), default bOPV.
+
+function _admPace(){ var cb=(D.covBar&&D.covBar.length)?D.covBar:[25,50,75,95,100,100];
+  return (dayIdx<cb.length)?cb[dayIdx]:cb[cb.length-1]; }
+function _admDosesPerVial(){ var v=(D.round&&D.round.vaccine)?String(D.round.vaccine).toLowerCase():'bopv';
+  return (v.indexOf('nopv')>=0)?50:20; }
+function _admCum(w,field){ var m=w.d[dayIdx]; if(!m)return null; var c=m[field]; return c==null?null:+c; }
+function _admDay(w,field,di){ var m=w.d[di]; if(!m)return null; var d=m[field+'D']; if(d!=null)return +d;
+  var prev=(di>0&&w.d[di-1])?w.d[di-1][field]:0; var cur=m[field]; return cur==null?null:(+cur-(+prev||0)); }
+function _admPct(n,d){ return d>0?Math.round(n/d*1000)/10:null; }
+function _admList(names){ names=names.filter(Boolean); if(!names.length)return '';
+  if(names.length===1)return names[0];
+  if(names.length===2)return names[0]+' and '+names[1];
+  return names.slice(0,-1).join(', ')+', and '+names[names.length-1]; }
+function _admBold(nm){ return '<b>'+nm+'</b>'; }                         // woreda name: always bold
+function _admFig(s,red){ return red?('<span style="color:var(--L1)">'+s+'</span>'):s; } // red = colour only
+function _admTblName(nm,red){ return red?('<b style="color:var(--L1)">'+nm+'</b>'):('<b>'+nm+'</b>'); }
+
+// Indicator definitions. compute(w) -> null or {red, val, fig} ; fig = the inline "(..)" content.
+var ADM_INDICATORS = [
+ { key:'cov', label:'Admin coverage', table:'Admin coverage',
+   compute:function(w){ var tg=+w.tgt; if(!(tg>0))return null; var vax=_admCum(w,'vax'); if(vax==null)return null;
+     var cov=_admPct(vax,tg); if(cov==null)return null; var pace=_admPace();
+     if(cov >= pace-5) return null;   // hard only: flag only when MORE than 5 points below pace
+     return {red:true, val:(pace-cov), fig:_admFig(cov+'%',true)}; },
+   narrative:function(rows){ var pace=_admPace(); var frag=rows.map(function(r){return _admBold(r.name)+' ('+r.fig+')';});
+     return '<b>Admin coverage:</b> Coverage is below the expected coverage of '+pace+'% for '+DAYS[dayIdx]+' in '+_admList(frag)+'.'; } },
+
+ { key:'data', label:'Data validation check', table:'Data validation check',
+   compute:function(w){ var per=_admDosesPerVial(); var worst=null;
+     for(var di=0; di<=dayIdx; di++){ var vax=_admDay(w,'vax',di), vials=_admDay(w,'vialUsed',di);
+       if(vax==null||vials==null)continue; var diff=vax-vials*per; if(diff>0){ if(!worst||diff>worst.diff) worst={diff:diff,day:DAYS[di]}; } }
+     if(!worst)return null; return {red:true, val:worst.diff, fig:_admFig('-'+worst.diff.toLocaleString(),true)+', '+worst.day}; },
+   narrative:function(rows){ var frag=rows.map(function(r){return _admBold(r.name)+' ('+r.fig+')';});
+     return '<b>Data validation check recommended:</b> Children vaccinated exceed the total doses from the open vials reported in '+_admList(frag)+'. Kindly verify the children vaccinated and/or the vials used data.'; } },
+
+ { key:'zd', label:'Zero dose follow-up', table:'Zero dose follow-up',
+   // day-stamped: scan each day, flag the worst day a gap occurred (no revisit data, so it persists)
+   compute:function(w){ var worst=null;
+     for(var di=0; di<=dayIdx; di++){ var id=_admDay(w,'zerodose',di)||0, vac=_admDay(w,'zdVax',di)||0;
+       if(!(id>0))continue; var left=id-vac; if(left<=0)continue; var pct=_admPct(left,id);
+       if(!worst||pct>worst.pct) worst={pct:pct,left:left,id:id,day:DAYS[di]}; }
+     if(!worst)return null; var red=(worst.pct>=5);
+     return {red:red, val:worst.pct, fig:_admFig(worst.pct+'%',red)+', '+worst.left.toLocaleString()+' of '+worst.id.toLocaleString()+', '+worst.day}; },
+   narrative:function(rows){ var frag=rows.map(function(r){return _admBold(r.name)+' ('+r.fig+')';});
+     return '<b>Zero dose follow-up:</b> Some identified zero dose children were not vaccinated in '+_admList(frag)+'.'; } },
+
+ { key:'uv', label:'Under-vaccinated follow-up', table:'Under-vaccinated follow-up',
+   compute:function(w){ var worst=null;
+     for(var di=0; di<=dayIdx; di++){ var id=_admDay(w,'undervax',di)||0, vac=_admDay(w,'uvcVax',di)||0;
+       if(!(id>0))continue; var left=id-vac; if(left<=0)continue; var pct=_admPct(left,id);
+       if(!worst||pct>worst.pct) worst={pct:pct,left:left,id:id,day:DAYS[di]}; }
+     if(!worst)return null; var red=(worst.pct>=5);
+     return {red:red, val:worst.pct, fig:_admFig(worst.pct+'%',red)+', '+worst.left.toLocaleString()+' of '+worst.id.toLocaleString()+', '+worst.day}; },
+   narrative:function(rows){ var frag=rows.map(function(r){return _admBold(r.name)+' ('+r.fig+')';});
+     return '<b>Under-vaccinated follow-up:</b> Some identified under-vaccinated children were not vaccinated in '+_admList(frag)+'.'; } },
+
+ { key:'u1', label:'Under-1 share of unvaccinated', table:'Under-1 share of unvaccinated',
+   compute:function(w){ var worst=null;
+     for(var di=0; di<=dayIdx; di++){ var u1n=_admDay(w,'vaxU1Not',di)||0,a1n=_admDay(w,'vax1to5Not',di)||0; var notv=u1n+a1n;
+       if(!(notv>0))continue; var share=_admPct(u1n,notv); if(share<60)continue;
+       if(!worst||share>worst.share) worst={share:share,day:DAYS[di]}; }
+     if(!worst)return null; var red=(worst.share>=70);
+     return {red:red, val:worst.share, fig:_admFig(worst.share+'%',red)+', '+worst.day}; },
+   narrative:function(rows){ var frag=rows.map(function(r){return _admBold(r.name)+' ('+r.fig+')';});
+     return '<b>Under-1 share of unvaccinated:</b> Most of the children who were not vaccinated were under-1 in '+_admList(frag)+'. Targeting households with under-1 children for the revisit is key and could contribute to zero dose reduction.'; } },
+
+ { key:'broken', label:'Broken Vials', table:'Broken Vials',
+   compute:function(w){ var n=_admCum(w,'vialBroken')||0; if(!(n>0))return null; return {red:true, val:n, fig:String(n)}; },
+   narrative:function(rows){ var frag=rows.map(function(r){return _admBold(r.name)+' ('+r.fig+')';});
+     return '<b>Broken Vials:</b> reported from '+_admList(frag)+'.'; } },
+
+ { key:'vvm', label:'Vials returned in VVM 3 or 4', table:'Vials returned in VVM 3 or 4',
+   compute:function(w){ var n=_admCum(w,'vialVVM')||0; if(!(n>0))return null; return {red:true, val:n, fig:String(n)}; },
+   narrative:function(rows){ var frag=rows.map(function(r){return _admBold(r.name)+' ('+r.fig+')';});
+     return '<b>Vials returned in VVM 3 or 4:</b> reported from '+_admList(frag)+'.'; } },
+
+ { key:'lost', label:'Missing Vials', table:'Missing Vials',
+   compute:function(w){ var n=_admCum(w,'vialLost')||0; if(!(n>0))return null; return {red:true, val:n, fig:String(n)}; },
+   narrative:function(rows){ var frag=rows.map(function(r){return _admBold(r.name)+' ('+r.fig+')';});
+     return '<b>Missing Vials:</b> reported from '+_admList(frag)+'.'; } }
+];
+
+function _admRunChecks(ws){
+  var res={};
+  ADM_INDICATORS.forEach(function(ind){
+    var rows=[];
+    ws.forEach(function(w){ var r=ind.compute(w); if(r){ r.name=w.name; r.zone=w.zone||''; r.region=w.region||''; rows.push(r); } });
+    rows.sort(function(a,b){ if(b.red!==a.red)return (b.red?1:0)-(a.red?1:0); return b.val-a.val; });
+    if(rows.length) res[ind.key]=rows;
+  });
+  return res;
+}
+
+function _admScopeBlock(ws, single){
+  var res=_admRunChecks(ws);
+  var keys=ADM_INDICATORS.map(function(i){return i.key;}).filter(function(k){return res[k];});
+  if(!keys.length) return null;
+  var narr='<ul style="margin:0 0 0 18px;padding:0">'+keys.map(function(k){ var ind=ADM_INDICATORS.find(function(i){return i.key===k;});
+    var line = single
+      ? ind.narrative([{name:'', fig:res[k][0].fig}]).replace(/ in \(/,' (').replace(' ()','').replace('in <b></b> ('," (")
+      : ind.narrative(res[k]);
+    return '<li style="margin:4px 0;line-height:1.5">'+line+'</li>'; }).join('')+'</ul>';
+  if(single) return {single:true, narr:narr};
+  var trows=keys.map(function(k){ var ind=ADM_INDICATORS.find(function(i){return i.key===k;});
+    var names=res[k].map(function(r){return _admTblName(r.name,r.red);});
+    return '<tr><td style="padding:4px 8px;border-top:1px solid var(--line)"><b>'+ind.table+'</b></td>'+
+           '<td style="padding:4px 8px;border-top:1px solid var(--line)">'+names.join(', ')+'</td></tr>'; }).join('');
+  var byW={};
+  keys.forEach(function(k){ res[k].forEach(function(r){ if(!byW[r.name])byW[r.name]={n:0,inds:[],red:0};
+    byW[r.name].n++; byW[r.name].inds.push(ADM_INDICATORS.find(function(i){return i.key===k;}).label); if(r.red)byW[r.name].red++; }); });
+  var wlist=Object.keys(byW).map(function(nm){return {name:nm,n:byW[nm].n,inds:byW[nm].inds,red:byW[nm].red};});
+  wlist.sort(function(a,b){ if(b.n!==a.n)return b.n-a.n; return b.red-a.red; });
+  var most='<ul style="margin:0 0 0 18px;padding:0">'+wlist.map(function(w){ var noun=(w.n===1?'area':'areas'); var nm=(w.red>0)?('<b style="color:var(--L1)">'+w.name+'</b>'):('<b>'+w.name+'</b>');
+    return '<li style="font-size:12px;margin:3px 0;line-height:1.5">'+nm+' has <b>'+w.n+' '+noun+'</b> recommended for follow-up ('+w.inds.join(', ')+').</li>'; }).join('')+'</ul>';
+  return {single:false, narr:narr, trows:trows, most:most};
+}
+
+function _adminReportHTML(){
+  var all=D.woredas.filter(inScope);
+  var loc;
+  if(place.w){ loc=place.w+' of '+(place.z||'')+' Zone in '+(place.r||'')+' Region'; }
+  else if(place.z){ loc=place.z+' in '+(place.r||'')+' Region'; }
+  else if(place.r){ loc=place.r; }
+  else { loc='All Implementing Areas'; }
+  var intro='<div style="font-size:14px;font-weight:bold;color:#3a3000;margin-bottom:6px">SUMMARY OF FOLLOW-UP ACTION POINTS: '+loc+' (as of '+DAYS[dayIdx]+')</div>'+
+    '<div style="font-size:11px;color:var(--mut);margin-bottom:8px">These points are based on reported data as of the selected day. Areas behind the expected coverage for the day are listed, and those furthest behind are shown in red.</div>'+
+    '<div style="font-size:12px;font-style:italic;color:var(--ink);margin-bottom:14px">The hard work and dedication of all the teams is recognized and appreciated. Here are some key highlights of areas for improvement to strengthen the quality of the campaign:</div>';
+
+  if(place.w){
+    var b=_admScopeBlock(all, true);
+    if(!b) return intro+'<div style="font-size:12px;color:var(--ink)">On track, with no areas flagged at this time.</div>';
+    return intro+'<div style="font-size:12px;line-height:1.5;color:var(--ink)">'+b.narr+'</div>';
+  }
+
+  var groups;
+  if(!place.r){ var byR={}; all.forEach(function(w){ (byR[w.region]=byR[w.region]||[]).push(w); });
+    groups=Object.keys(byR).map(function(rn){return {name:rn, ws:byR[rn]};}); }
+  else { groups=[{name:loc, ws:all}]; }
+
+  groups.forEach(function(g){ var res=_admRunChecks(g.ws); var tot=0,red=0;
+    Object.keys(res).forEach(function(k){ res[k].forEach(function(r){ tot++; if(r.red)red++; }); }); g._tot=tot; g._red=red; });
+  groups.sort(function(a,b){ if(b._red!==a._red)return b._red-a._red; return b._tot-a._tot; });
+
+  var blocks=groups.map(function(g){
+    var b=_admScopeBlock(g.ws, false);
+    var header=(!place.r)?('<div style="font-size:13px;font-weight:bold;color:var(--navy);margin:14px 0 6px">\u25B8 '+g.name.toUpperCase()+'</div>'):'';
+    if(!b){ return (!place.r)? header+'<div style="font-size:12px;color:var(--ink);margin-bottom:6px">On track, with no areas flagged at this time.</div>' : ''; }
+    if(g.ws.length<=1){ return header+'<div style="font-size:12px;line-height:1.5;color:var(--ink)">'+b.narr+'</div>'; }
+    var tableTitle='Summary for '+g.name+(place.z?(' in '+(place.r||'')+' Region'):'')+' as of '+DAYS[dayIdx];
+    var table='<div style="font-size:12px;font-style:italic;color:var(--navy);margin:18px 0 4px">'+tableTitle+'</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="text-align:left;color:var(--navy)">'+
+      '<th style="padding:4px 8px">Indicator</th><th style="padding:4px 8px">Woredas needing follow up</th></tr></thead><tbody>'+b.trows+'</tbody></table>';
+    var most='<div style="font-size:12px;font-weight:bold;color:var(--navy);margin:18px 0 4px">Woredas with the most areas recommended for follow-up:</div>'+b.most;
+    return header+'<div style="font-size:12px;line-height:1.5;color:var(--ink)">'+b.narr+'</div>'+table+most;
+  }).join('<hr style="border:none;border-top:2px solid var(--line);margin:20px 0">');
+
+  if(!blocks.replace(/\s/g,'')) return intro+'<div style="font-size:12px;color:var(--ink)">On track, with no areas flagged at this time.</div>';
+  return intro+blocks;
+}
+
+function openAdminReport(){
+  var ov=document.getElementById('admReportOverlay');
+  if(!ov){ ov=document.createElement('div'); ov.id='admReportOverlay';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.innerHTML='<div style="background:#FFFDF2;max-width:820px;width:100%;max-height:85vh;overflow:auto;border:1px solid #E6C34A;border-radius:8px;padding:18px;box-shadow:0 8px 30px rgba(0,0,0,.3)">'+
+      '<div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:6px">'+
+        '<button class="dlbtn" style="background:#64748B;border-color:#64748B" onclick="closeAdminReport()">Close</button>'+
+      '</div><div id="admReportBody"></div></div>';
+    ov.addEventListener('click',function(e){ if(e.target===ov) closeAdminReport(); });
+    document.body.appendChild(ov);
+  }
+  document.getElementById('admReportBody').innerHTML=_adminReportHTML();
+  ov.style.display='flex';
+}
+function closeAdminReport(){ var ov=document.getElementById('admReportOverlay'); if(ov) ov.style.display='none'; }
+
+// ========================== END ADMIN FLAG REPORT ENGINE ==========================
+
+// ========================= SUPERVISION FLAG REPORT ENGINE =========================
+// Cumulative as of the selected day. Each indicator is the NEGATIVE/concern form of
+// the supervision checklist item. An area is listed when 5% or more of reports show a
+// concern (black), and shown in red at 10% or more. Plus: priority areas (hard behind
+// admin coverage pace AND zero supervision reports as of the day) and teams not yet
+// reported (share of microplan teams; no threshold/red). Dynamic to the selected
+// location, grouped by region at national. Clean bullets, consistent labels.
+
+// Negative-tone labels for every supervision indicator (inv flips which side is the concern).
+var SUP_NEG = {
+  trained:'Team members not trained', complete:'Incomplete vaccination teams',
+  local:'Local team member absent', move:'Movement plan unavailable',
+  maps:'Area maps unavailable', mapsint:'Maps not interpreted correctly',
+  mark:'Houses not marked correctly', fm:'Poor finger-marking',
+  revisit:'Revisits not recorded', tallied:'Doses tallied not recorded',
+  nopv2:'Insufficient nOPV2 for the day', recvials:'Received vials not recorded',
+  stage:'Vaccine found in stage 3/4', vvm:'VVM not interpreted correctly',
+  icepack:'Frozen icepack issues', foam:'Foam cover not present',
+  notexp:'Vaccine not exposed', parents:'Parents/Caregivers not informed of next round',
+  ri:'Parents/Caregivers not reminded about routine immunization',
+  askafp:'Team not asking about AFP'
+};
+
+function _supConcern(w, ind){ // concern count for an indicator, selected day only (daily)
+  // SELECTED DAY only (daily), so a resolved past-day issue does not keep flagging.
+  var yes=0,no=0,seen=false; var byDay=w.supNByDay;
+  if(byDay){ var dd=byDay[DAYS[dayIdx]]; if(dd&&dd[ind]){ yes=dd[ind].yes||0; no=dd[ind].no||0; seen=(yes+no)>0; } }
+  var tot=yes+no; if(!seen||tot<=0)return null;
+  // flipped indicator 'notexp' (Vaccine not exposed): raw yes = exposed = the concern.
+  var concern = (ind==='notexp') ? yes : no;
+  return {concern:concern, tot:tot};
+}
+function _supPaceBehindHard(w){ var tg=+w.tgt; if(!(tg>0))return false; var vax=_admCum(w,'vax'); if(vax==null)return false;
+  var cov=_admPct(vax,tg); var cb=(D.covBar&&D.covBar.length)?D.covBar:[25,50,75,95,100,100];
+  var pace=(dayIdx<cb.length)?cb[dayIdx]:cb[cb.length-1]; return cov < (pace-5); }
+function _supHasReport(w){ var c=dm(w).supN; if(!c)return false;
+  for(var k in c){ if(c[k]&&((c[k].yes||0)+(c[k].no||0))>0)return true; } return (dm(w).supTeams||0)>0; }
+
+// Run indicator checks over woredas -> {ind:[rows]} (rows sorted worst-first)
+// Sliding follow-up threshold. 1-2 reports never flag. 3-4 need 2; 5-10 need 3; then
+// one more concern per ten reports (11-20 -> 4, 21-30 -> 5, 31-40 -> 6, ...). From 100
+// reports it uses a flat 10%, since at that scale a 10% share is a substantial count.
+function _flagBySample(concern, tot){
+  if(tot<=2) return false;
+  var need;
+  if(tot>=100)     need = Math.ceil(tot*0.10);
+  else if(tot<=4)  need = 2;
+  else if(tot<=10) need = 3;
+  else             need = Math.floor((tot-1)/10) + 3;   // 11-20 ->4, 21-30 ->5, ...
+  return concern>=need;
+}
+function _supRunChecks(ws){
+  var res={};
+  SUP.forEach(function(def){ var ind=def.k; var rows=[];
+    ws.forEach(function(w){ var c=_supConcern(w,ind); if(!c||c.concern<=0)return;
+      if(!_flagBySample(c.concern,c.tot))return; var pct=_admPct(c.concern,c.tot);
+      rows.push({name:w.name, zone:w.zone||'', region:w.region||'', red:true, val:pct,
+        fig:_admFig(pct+'%',true)+', '+c.concern+' of '+c.tot+' reports'}); });
+    rows.sort(function(a,b){ if(b.red!==a.red)return (b.red?1:0)-(a.red?1:0); return b.val-a.val; });
+    if(rows.length) res[ind]=rows;
+  });
+  return res;
+}
+
+function _supScopeBlock(ws){
+  var res=_supRunChecks(ws);
+  var keys=SUP.map(function(d){return d.k;}).filter(function(k){return res[k];});
+  // teams not yet reported (share of microplan teams) - no threshold, no red
+  var teamRows=[];
+  ws.forEach(function(w){ var plan=dm(w).planTeams||0, sup=dm(w).supTeams||0; if(!(plan>0))return;
+    var missing=plan-sup; if(missing<=0)return; var pct=Math.round(missing/plan*1000)/10;
+    teamRows.push({name:w.name, pct:pct, missing:missing, plan:plan, val:pct}); });
+  teamRows.sort(function(a,b){return b.val-a.val;});
+  // priority areas: hard behind admin AND no supervision report
+  var prio=[];
+  ws.forEach(function(w){ if(_supPaceBehindHard(w) && !_supHasReport(w)) prio.push(w.name); });
+
+  if(!keys.length && !teamRows.length && !prio.length) return null;
+
+  var narr='';
+  if(keys.length){ narr='<ul style="margin:0 0 0 18px;padding:0">'+keys.map(function(k){
+    var frag=res[k].map(function(r){return _admBold(r.name)+' ('+r.fig+')';});
+    return '<li style="margin:4px 0;line-height:1.5"><b>'+SUP_NEG[k]+':</b> reported in '+_admList(frag)+'.</li>';
+  }).join('')+'</ul>'; }
+
+  var prioBlock = prio.length ? ('<div style="font-size:12px;line-height:1.5;color:var(--ink);margin-top:10px"><b>Priority areas with no supervision report:</b> '+_admList(prio.map(function(n){return _admBold(n);}))+' are behind on administrative coverage and have no supervision report as of '+DAYS[dayIdx]+', warranting urgent attention.</div>') : '';
+
+  var teamBlock = teamRows.length ? ('<hr style="border:none;border-top:1px solid var(--line);margin:12px 0"><div style="font-size:12px;line-height:1.5;color:var(--ink)"><b>Teams not yet reported on supervision:</b> '+
+    _admList(teamRows.map(function(t){return _admBold(t.name)+' ('+t.pct+'%, '+t.missing+' of '+t.plan+' teams)';}))+
+    '. This reflects ODK reporting. Supervision may have occurred without being recorded.</div>') : '';
+
+  // summary table + most-issues (indicators only; teams & priority excluded)
+  var table='', most='';
+  if(keys.length){
+    var trows=keys.map(function(k){ var names=res[k].map(function(r){return (r.red?('<b style="color:var(--L1)">'+r.name+'</b>'):('<b>'+r.name+'</b>'));});
+      return '<tr><td style="padding:4px 8px;border-top:1px solid var(--line)"><b>'+SUP_NEG[k]+'</b></td>'+
+             '<td style="padding:4px 8px;border-top:1px solid var(--line)">'+names.join(', ')+'</td></tr>'; }).join('');
+    table={trows:trows};
+    var byW={};
+    keys.forEach(function(k){ res[k].forEach(function(r){ if(!byW[r.name])byW[r.name]={n:0,inds:[],red:0};
+      byW[r.name].n++; byW[r.name].inds.push(SUP_NEG[k]); if(r.red)byW[r.name].red++; }); });
+    var wlist=Object.keys(byW).map(function(nm){return {name:nm,n:byW[nm].n,inds:byW[nm].inds,red:byW[nm].red};});
+    wlist.sort(function(a,b){ if(b.n!==a.n)return b.n-a.n; return b.red-a.red; });
+    most='<ul style="margin:0 0 0 18px;padding:0">'+wlist.map(function(w){ var noun=(w.n===1?'area':'areas'); var nm=(w.red>0)?('<b style="color:var(--L1)">'+w.name+'</b>'):('<b>'+w.name+'</b>');
+      return '<li style="font-size:12px;margin:3px 0;line-height:1.5">'+nm+' has <b>'+w.n+' '+noun+'</b> recommended for follow-up ('+w.inds.join(', ')+').</li>'; }).join('')+'</ul>';
+  }
+  return {narr:narr, prioBlock:prioBlock, teamBlock:teamBlock, table:table, most:most, hasInd:!!keys.length};
+}
+
+function _supReportHTML(){
+  var all=D.woredas.filter(inScope);
+  var loc;
+  if(place.w){ loc=place.w+' of '+(place.z||'')+' Zone in '+(place.r||'')+' Region'; }
+  else if(place.z){ loc=place.z+' in '+(place.r||'')+' Region'; }
+  else if(place.r){ loc=place.r; }
+  else { loc='All Implementing Areas'; }
+  var intro='<div style="font-size:14px;font-weight:bold;color:#3a3000;margin-bottom:6px">SUMMARY OF FOLLOW-UP ACTION POINTS: '+loc+' (on '+DAYS[dayIdx]+')</div>'+
+    '<div style="font-size:11px;color:var(--mut);margin-bottom:8px">Areas with substantial poor findings reported are flagged.</div>'+
+    '<div style="font-size:12px;font-style:italic;color:var(--ink);margin-bottom:14px">The hard work and dedication of all the teams and supervisors is appreciated. Here are some key highlights for improvement to guide focus areas during subsequent supervision for the vaccination campaign:</div>';
+
+  var groups;
+  if(!place.r){ var byR={}; all.forEach(function(w){ (byR[w.region]=byR[w.region]||[]).push(w); });
+    groups=Object.keys(byR).map(function(rn){return {name:rn, ws:byR[rn]};}); }
+  else { groups=[{name:loc, ws:all}]; }
+
+  groups.forEach(function(g){ var r=_supRunChecks(g.ws); var tot=0,red=0;
+    Object.keys(r).forEach(function(k){ r[k].forEach(function(x){ tot++; if(x.red)red++; }); }); g._tot=tot; g._red=red; });
+  groups.sort(function(a,b){ if(b._red!==a._red)return b._red-a._red; return b._tot-a._tot; });
+
+  var blocks=groups.map(function(g){
+    var b=_supScopeBlock(g.ws);
+    var header=(!place.r)?('<div style="font-size:13px;font-weight:bold;color:var(--navy);margin:14px 0 6px">\u25B8 '+g.name.toUpperCase()+'</div>'):'';
+    if(!b){ return (!place.r)? header+'<div style="font-size:12px;color:var(--ink);margin-bottom:6px">On track, with no areas flagged at this time.</div>' : ''; }
+    var html=header+'<div style="font-size:12px;line-height:1.5;color:var(--ink)">'+b.narr+'</div>'+b.prioBlock+b.teamBlock;
+    if(b.hasInd && g.ws.length>1){
+      var tableTitle='Summary for '+g.name+(place.z?(' in '+(place.r||'')+' Region'):'')+' on '+DAYS[dayIdx];
+      html+='<div style="font-size:12px;font-style:italic;color:var(--navy);margin:18px 0 4px">'+tableTitle+'</div>'+
+        '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="text-align:left;color:var(--navy)">'+
+        '<th style="padding:4px 8px">Indicator</th><th style="padding:4px 8px">Woredas needing follow up</th></tr></thead><tbody>'+b.table.trows+'</tbody></table>';
+      html+='<div style="font-size:12px;font-weight:bold;color:var(--navy);margin:18px 0 4px">Woredas with the most areas recommended for follow-up:</div>'+b.most;
+    }
+    return html;
+  }).join('<hr style="border:none;border-top:2px solid var(--line);margin:20px 0">');
+
+  if(!blocks.replace(/\s/g,'')) return intro+'<div style="font-size:12px;color:var(--ink)">On track, with no areas flagged at this time.</div>';
+  return intro+blocks;
+}
+
+function openSupReport(){
+  var ov=document.getElementById('supReportOverlay');
+  if(!ov){ ov=document.createElement('div'); ov.id='supReportOverlay';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.innerHTML='<div style="background:#FFFDF2;max-width:820px;width:100%;max-height:85vh;overflow:auto;border:1px solid #E6C34A;border-radius:8px;padding:18px;box-shadow:0 8px 30px rgba(0,0,0,.3)">'+
+      '<div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:6px">'+
+        '<button class="dlbtn" style="background:#64748B;border-color:#64748B" onclick="closeSupReport()">Close</button>'+
+      '</div><div id="supReportBody"></div></div>';
+    ov.addEventListener('click',function(e){ if(e.target===ov) closeSupReport(); });
+    document.body.appendChild(ov);
+  }
+  document.getElementById('supReportBody').innerHTML=_supReportHTML();
+  ov.style.display='flex';
+}
+function closeSupReport(){ var ov=document.getElementById('supReportOverlay'); if(ov) ov.style.display='none'; }
+
+// ======================= END SUPERVISION FLAG REPORT ENGINE =======================
+
+// ===================== SOCIAL MOBILIZATION FLAG REPORT ENGINE =====================
+// Cumulative as of the selected day. Negative/concern form of each social mobilization
+// indicator. Listed at 5% or more of reports (black), red at 10% or more. Same layout
+// as the supervision report (narrative, summary table, most-issues), grouped by region.
+
+var SM_NEG = {
+  infDay:'Caregivers not informed on campaign day',
+  infAge:'Caregivers not informed on age group',
+  infVacc:'Caregivers not informed on vaccine type',
+  ready:'Caregivers not ready to vaccinate',
+  prevVacc:'Children not previously vaccinated',
+  poorCov:'Poorly covered area NOT reported'
+};
+
+function _smConcern(w, ind){
+  // SELECTED DAY only (daily), so a resolved past-day issue does not keep flagging.
+  var yes=0,no=0,seen=false; var byDay=w.smNByDay;
+  if(byDay){ var dd=byDay[DAYS[dayIdx]]; if(dd&&dd[ind]){ yes=dd[ind].yes||0; no=dd[ind].no||0; seen=(yes+no)>0; } }
+  var tot=yes+no; if(!seen||tot<=0)return null;
+  // flipped indicator 'poorCov' (Poorly covered area NOT reported): raw yes = reported = the concern.
+  var concern = (ind==='poorCov') ? yes : no;
+  return {concern:concern, tot:tot};
+}
+
+function _smRunChecks(ws){
+  var res={};
+  SM.forEach(function(def){ var ind=def.k; var rows=[];
+    ws.forEach(function(w){ var c=_smConcern(w,ind); if(!c||c.concern<=0)return;
+      if(!_flagBySample(c.concern,c.tot))return; var pct=_admPct(c.concern,c.tot);
+      rows.push({name:w.name, zone:w.zone||'', region:w.region||'', red:true, val:pct,
+        fig:_admFig(pct+'%',true)+', '+c.concern+' of '+c.tot+' reports'}); });
+    rows.sort(function(a,b){ if(b.red!==a.red)return (b.red?1:0)-(a.red?1:0); return b.val-a.val; });
+    if(rows.length) res[ind]=rows;
+  });
+  return res;
+}
+
+function _smScopeBlock(ws){
+  var res=_smRunChecks(ws);
+  var keys=SM.map(function(d){return d.k;}).filter(function(k){return res[k];});
+  if(!keys.length) return null;
+  var narr='<ul style="margin:0 0 0 18px;padding:0">'+keys.map(function(k){
+    var frag=res[k].map(function(r){return _admBold(r.name)+' ('+r.fig+')';});
+    return '<li style="margin:4px 0;line-height:1.5"><b>'+SM_NEG[k]+':</b> reported in '+_admList(frag)+'.</li>';
+  }).join('')+'</ul>';
+  var trows=keys.map(function(k){ var names=res[k].map(function(r){return (r.red?('<b style="color:var(--L1)">'+r.name+'</b>'):('<b>'+r.name+'</b>'));});
+    return '<tr><td style="padding:4px 8px;border-top:1px solid var(--line)"><b>'+SM_NEG[k]+'</b></td>'+
+           '<td style="padding:4px 8px;border-top:1px solid var(--line)">'+names.join(', ')+'</td></tr>'; }).join('');
+  var byW={};
+  keys.forEach(function(k){ res[k].forEach(function(r){ if(!byW[r.name])byW[r.name]={n:0,inds:[],red:0};
+    byW[r.name].n++; byW[r.name].inds.push(SM_NEG[k]); if(r.red)byW[r.name].red++; }); });
+  var wlist=Object.keys(byW).map(function(nm){return {name:nm,n:byW[nm].n,inds:byW[nm].inds,red:byW[nm].red};});
+  wlist.sort(function(a,b){ if(b.n!==a.n)return b.n-a.n; return b.red-a.red; });
+  var most='<ul style="margin:0 0 0 18px;padding:0">'+wlist.map(function(w){ var noun=(w.n===1?'area':'areas'); var nm=(w.red>0)?('<b style="color:var(--L1)">'+w.name+'</b>'):('<b>'+w.name+'</b>');
+    return '<li style="font-size:12px;margin:3px 0;line-height:1.5">'+nm+' has <b>'+w.n+' '+noun+'</b> recommended for follow-up ('+w.inds.join(', ')+').</li>'; }).join('')+'</ul>';
+  return {narr:narr, trows:trows, most:most};
+}
+
+function _smReportHTML(){
+  var all=D.woredas.filter(inScope);
+  var loc;
+  if(place.w){ loc=place.w+' of '+(place.z||'')+' Zone in '+(place.r||'')+' Region'; }
+  else if(place.z){ loc=place.z+' in '+(place.r||'')+' Region'; }
+  else if(place.r){ loc=place.r; }
+  else { loc='All Implementing Areas'; }
+  var intro='<div style="font-size:14px;font-weight:bold;color:#3a3000;margin-bottom:6px">SUMMARY OF FOLLOW-UP ACTION POINTS: '+loc+' (on '+DAYS[dayIdx]+')</div>'+
+    '<div style="font-size:11px;color:var(--mut);margin-bottom:8px">Areas with substantial poor findings reported are flagged.</div>'+
+    '<div style="font-size:12px;font-style:italic;color:var(--ink);margin-bottom:14px">The hard work and dedication of all the social mobilization teams is appreciated. Here are some key highlights for improvement to strengthen community engagement during the campaign:</div>';
+
+  var groups;
+  if(!place.r){ var byR={}; all.forEach(function(w){ (byR[w.region]=byR[w.region]||[]).push(w); });
+    groups=Object.keys(byR).map(function(rn){return {name:rn, ws:byR[rn]};}); }
+  else { groups=[{name:loc, ws:all}]; }
+
+  groups.forEach(function(g){ var r=_smRunChecks(g.ws); var tot=0,red=0;
+    Object.keys(r).forEach(function(k){ r[k].forEach(function(x){ tot++; if(x.red)red++; }); }); g._tot=tot; g._red=red; });
+  groups.sort(function(a,b){ if(b._red!==a._red)return b._red-a._red; return b._tot-a._tot; });
+
+  var blocks=groups.map(function(g){
+    var b=_smScopeBlock(g.ws);
+    var header=(!place.r)?('<div style="font-size:13px;font-weight:bold;color:var(--navy);margin:14px 0 6px">\u25B8 '+g.name.toUpperCase()+'</div>'):'';
+    if(!b){ return (!place.r)? header+'<div style="font-size:12px;color:var(--ink);margin-bottom:6px">On track, with no areas flagged at this time.</div>' : ''; }
+    if(g.ws.length<=1){ return header+'<div style="font-size:12px;line-height:1.5;color:var(--ink)">'+b.narr+'</div>'; }
+    var tableTitle='Summary for '+g.name+(place.z?(' in '+(place.r||'')+' Region'):'')+' on '+DAYS[dayIdx];
+    var table='<div style="font-size:12px;font-style:italic;color:var(--navy);margin:18px 0 4px">'+tableTitle+'</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="text-align:left;color:var(--navy)">'+
+      '<th style="padding:4px 8px">Indicator</th><th style="padding:4px 8px">Woredas needing follow up</th></tr></thead><tbody>'+b.trows+'</tbody></table>';
+    var most='<div style="font-size:12px;font-weight:bold;color:var(--navy);margin:18px 0 4px">Woredas with the most areas recommended for follow-up:</div>'+b.most;
+    return header+'<div style="font-size:12px;line-height:1.5;color:var(--ink)">'+b.narr+'</div>'+table+most;
+  }).join('<hr style="border:none;border-top:2px solid var(--line);margin:20px 0">');
+
+  if(!blocks.replace(/\s/g,'')) return intro+'<div style="font-size:12px;color:var(--ink)">On track, with no areas flagged at this time.</div>';
+  return intro+blocks;
+}
+
+function openSMReport(){
+  var ov=document.getElementById('smReportOverlay');
+  if(!ov){ ov=document.createElement('div'); ov.id='smReportOverlay';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.innerHTML='<div style="background:#FFFDF2;max-width:820px;width:100%;max-height:85vh;overflow:auto;border:1px solid #E6C34A;border-radius:8px;padding:18px;box-shadow:0 8px 30px rgba(0,0,0,.3)">'+
+      '<div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:6px">'+
+        '<button class="dlbtn" style="background:#64748B;border-color:#64748B" onclick="closeSMReport()">Close</button>'+
+      '</div><div id="smReportBody"></div></div>';
+    ov.addEventListener('click',function(e){ if(e.target===ov) closeSMReport(); });
+    document.body.appendChild(ov);
+  }
+  document.getElementById('smReportBody').innerHTML=_smReportHTML();
+  ov.style.display='flex';
+}
+function closeSMReport(){ var ov=document.getElementById('smReportOverlay'); if(ov) ov.style.display='none'; }
+
+// =================== END SOCIAL MOBILIZATION FLAG REPORT ENGINE ===================
+
 function paintAdm(){
   const ws=scoped();
   const _tp=ws.reduce((s,w)=>{const t=+w.tgt;return s+(isNaN(t)?0:t);},0);
@@ -2142,7 +2603,8 @@ function paintAdm(){
   const bd=coverageBreakdown();
   const modeSeg='<div class="seg" style="margin-bottom:10px"><button class="'+(curMode()==='cumulative'?'on':'')+'" onclick="setMode(\'cumulative\')">Cumulative</button><button class="'+(curMode()==='daily'?'on':'')+'" onclick="setMode(\'daily\')">Daily</button></div>'+
     (dayIdx===0?'<div style="font-size:11px;color:var(--mut);font-style:italic;margin:-4px 0 10px">On Day 1, cumulative and daily are the same.</div>':'');
-  page.innerHTML='<div class="sectit">Admin performance</div><div class="secsub">coverage, utilization, integrated services</div><div class="scope">'+scopeLabel()+'</div>'+
+  page.innerHTML='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div><div class="sectit">Admin performance</div><div class="secsub">coverage, utilization, integrated services</div><div class="scope">'+scopeLabel()+'</div></div>'+
+    '<button class="dlbtn" style="background:#E8833A;border-color:#E8833A;white-space:nowrap" onclick="openAdminReport()">Summary of Follow-up Action Points</button></div>'+
     modeSeg+
     '<div class="cards">'+kpi('Admin coverage in '+placeName(),pv(cov),'target '+COVBAR[dayIdx]+'% by '+DAYS[dayIdx])+kpi('Implementing woredas in view',ws.length)+kpi('Wastage Rate',avg(ws.map(w=>dv(w,'wast')))+'%')+kpi('Target Pop (U5)',(ws.reduce((s,w)=>s+(w.tgt||0),0)).toLocaleString())+'</div>'+
     '<div class="grid2">'+
@@ -2209,6 +2671,12 @@ function paintAdm(){
     {label:'Used Vials',data:[_vU],backgroundColor:'#1D8A6E',borderRadius:3,barPercentage:0.6,categoryPercentage:0.7},
     {label:'Remaining Vials',data:[Math.max(0,_vR-_vU)],backgroundColor:'#94A3B8',borderRadius:3,barPercentage:0.6,categoryPercentage:0.7}
   ]},options:barOpt('',null,true,'Number of Vials '+yAxisDay())});
+
+  // Bottom-of-tab flag report (same content as the top pop-up).
+  var _rep=document.createElement('div');
+  _rep.style.cssText='margin-top:16px;border:1px solid #E6C34A;border-radius:8px;padding:14px;background:#FFFDF2';
+  _rep.innerHTML=_adminReportHTML();
+  page.appendChild(_rep);
 }
 function setMode(m){modeByTab[active]=m;paint();}
 // reusable cumulative/daily switch for any applicable tab (default cumulative)
@@ -2234,7 +2702,7 @@ const SUP=[
   {k:'vvm',l:'VVM interpreted correctly'},
   {k:'icepack',l:'Frozen icepack'},
   {k:'foam',l:'Foam cover present'},
-  {k:'notexp',l:'Vaccine exposed',inv:true},
+  {k:'notexp',l:'Vaccine not exposed'},
   {k:'parents',l:'Parents informed next round'},
   {k:'ri',l:'Reminder for RI given'},
   {k:'askafp',l:'Team asked about AFP'}
@@ -2243,8 +2711,7 @@ let supSel='maps';
 function paintSup(){
   const sel=SUP.find(s=>s.k===supSel)||SUP[0];const opts=SUP.map(s=>'<option value="'+s.k+'" '+(s.k===supSel?'selected':'')+'>'+s.l+'</option>').join('');
   const ws=scoped();const sup=avg(ws.map(w=>dv(w,'sup')));
-  const supColor = sup==null?'var(--mut)' : sup<50?'var(--L1)' : 'var(--L4)';
-  const supBand  = sup==null?'' : sup<50?'low (below 50%)' : 'adequate (50%+)';
+  const supColor = (sup!=null && sup<50) ? 'var(--L1)' : 'var(--navy)';  // red only if below 50%, else default
   const teamsSup = ws.reduce((a,w)=>a+(dm(w).supTeams||0),0);
   const teamsPlan= ws.reduce((a,w)=>a+(dm(w).planTeams||0),0);
   const typeAgg={};
@@ -2252,15 +2719,16 @@ function paintSup(){
   const typeChips=Object.keys(typeAgg).length?Object.keys(typeAgg).map(k=>'<span style="display:inline-block;background:#EEF2F7;border:1px solid var(--line);border-radius:5px;padding:3px 9px;margin:2px 4px 2px 0;font-size:12px">'+k+': <b>'+typeAgg[k]+'</b></span>').join(''):'<span style="color:var(--mut);font-size:12px">No team-type data</span>';
   // donut: Yes vs No proportion for the SELECTED indicator across current scope (counts summed)
   // Findings are for the SELECTED day only (no cumulative toggle on this tab).
+  const _supFlip=(ind,o)=>{ if(!o)return o; return (ind==='notexp')?{yes:o.no,no:o.yes}:o; }; // flipped indicator: raw yes=bad
   const supCounts=(w,ind)=>{
     const slot=dm(w);
     const byDay=w.supNByDay;
     if(curMode()==='daily'){
-      if(byDay){const dd=byDay[DAYS[dayIdx]]; return (dd&&dd[ind])?{yes:dd[ind].yes||0,no:dd[ind].no||0}:null;}
-      const c=slot.supN; return (c&&c[ind])?{yes:c[ind].yes||0,no:c[ind].no||0}:null;
+      if(byDay){const dd=byDay[DAYS[dayIdx]]; return _supFlip(ind,(dd&&dd[ind])?{yes:dd[ind].yes||0,no:dd[ind].no||0}:null);}
+      const c=slot.supN; return _supFlip(ind,(c&&c[ind])?{yes:c[ind].yes||0,no:c[ind].no||0}:null);
     }
-    if(byDay){let y=0,n=0,seen=false;for(let i=0;i<=dayIdx;i++){const dd=byDay[DAYS[i]];if(dd&&dd[ind]){y+=dd[ind].yes||0;n+=dd[ind].no||0;seen=true;}}return seen?{yes:y,no:n}:null;}
-    const c=slot.supN; return (c&&c[ind])?{yes:c[ind].yes||0,no:c[ind].no||0}:null;
+    if(byDay){let y=0,n=0,seen=false;for(let i=0;i<=dayIdx;i++){const dd=byDay[DAYS[i]];if(dd&&dd[ind]){y+=dd[ind].yes||0;n+=dd[ind].no||0;seen=true;}}return seen?_supFlip(ind,{yes:y,no:n}):null;}
+    const c=slot.supN; return _supFlip(ind,(c&&c[ind])?{yes:c[ind].yes||0,no:c[ind].no||0}:null);
   };
   let yTot=0,nTot=0;
   ws.forEach(w=>{const c=supCounts(w,supSel); if(c){yTot+=c.yes; nTot+=c.no;}});
@@ -2285,10 +2753,11 @@ function paintSup(){
       mkC('suA'+idx,{type:'doughnut',data:{datasets:[{data:[d.y,d.n],backgroundColor:(inv?['#DC2626','#1D8A6E']:['#1D8A6E','#DC2626']),borderWidth:0}]},options:donutOpt('72%')});
     });
   }
-  page.innerHTML='<div class="sectit">Supportive Supervision of Vaccination Teams ('+placeName()+')</div>'+
+  page.innerHTML='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div class="sectit">Supportive Supervision of Vaccination Teams ('+placeName()+')</div>'+
+    '<button class="dlbtn" style="background:#E8833A;border-color:#E8833A;white-space:nowrap" onclick="openSupReport()">Summary of Follow-up Action Points</button></div>'+
     '<div class="notify-strong"><span class="ico">\u26a0\ufe0f</span><span>Scroll down and use the <b>Indicator</b> filter to select an indicator, or choose <b>All indicators</b> to view every indicator at once.</span></div>'+
     '<div class="cards">'+
-      kpi('Vaccination Team Supervision Coverage ('+placeName()+')',pv(sup),'Teams visited at least once across campaign days \u00f7 total teams'+(supBand?' \u00b7 '+supBand:''),supColor)+
+      kpi('Vaccination Team Supervision Coverage ('+placeName()+')',pv(sup),'Teams visited at least once across campaign days \u00f7 total teams',supColor)+
       kpi('Vaccination Teams Visited for Supervision (ODK reporting evidence)',teamsSup.toLocaleString(),teamsPlan>0?('out of '+teamsPlan.toLocaleString()+' teams'):'planned teams N/A')+
     '</div>'+
     '<div class="card" style="padding:12px 14px;margin-bottom:12px"><div style="font-size:12px;color:var(--navy);font-weight:bold;margin-bottom:6px">Types of teams supervised</div>'+typeChips+'</div>'+
@@ -2318,16 +2787,19 @@ function paintSup(){
     '<div><span class="indlabel">Indicator:</span><select class="indsel prominent" onchange="supPick(this.value)" style="margin-bottom:12px"><option value="__ALL__" '+(supSel==='__ALL__'?'selected':'')+'>All indicators</option>'+opts+'</select></div>'+
     (supSel==='__ALL__' ? supAllIndicators() :
     '<div class="grid2" style="grid-template-columns:0.85fr 1.15fr;align-items:center">'+
-      card(sel.l,'Count of Yes vs No responses '+modeCap(),tot===0?'<div style="padding:30px;text-align:center;color:var(--mut);font-size:12px">No report data</div>':'<div class="donutwrap"><div class="donutbox"><canvas id="su1"></canvas><div class="donutctr"><div class="p">'+(sel&&sel.inv?noPct:yesPct)+'%</div><div class="l">'+(sel&&sel.inv?'No':'Yes')+'</div></div></div><div class="leg"><div class="legtot">ODK reports = '+tot.toLocaleString()+'</div><div><span class="sw" style="background:'+(sel&&sel.inv?'#DC2626':'#1D8A6E')+'"></span>Yes ('+yesPct+'%)</div><div><span class="sw" style="background:'+(sel&&sel.inv?'#1D8A6E':'#DC2626')+'"></span>No ('+noPct+'%)</div></div></div>')+
+      card(sel.l,'Count of Yes vs No responses '+modeCap(),tot===0?'<div style="padding:30px;text-align:center;color:var(--mut);font-size:12px">No report data</div>':'<div class="donutwrap"><div class="donutbox"><canvas id="su1"></canvas><div class="donutctr"><div class="p">'+yesPct+'%</div><div class="l">Yes</div></div></div><div class="leg"><div class="legtot">ODK reports = '+tot.toLocaleString()+'</div><div><span class="sw" style="background:#1D8A6E"></span>Yes ('+yesPct+'%)</div><div><span class="sw" style="background:#DC2626"></span>No ('+noPct+'%)</div></div></div>')+
       card('Supervision Visit Findings '+modeCap(),'count of Yes and No responses across supervision reports','<div class="chartbox"><canvas id="su2"></canvas></div>')+
     '</div>');
+  (function(){ var _r=document.createElement('div');
+    _r.style.cssText='margin-top:16px;border:1px solid #E6C34A;border-radius:8px;padding:14px;background:#FFFDF2';
+    _r.innerHTML=_supReportHTML(); page.appendChild(_r); })();
   if(supSel==='__ALL__'){ supAllRender(); return; }
-  if(tot>0) mkC('su1',{type:'doughnut',data:{datasets:[{data:[yTot,nTot],backgroundColor:(sel&&sel.inv?['#DC2626','#1D8A6E']:['#1D8A6E','#DC2626']),borderWidth:0}]},options:donutOpt('72%')});
+  if(tot>0) mkC('su1',{type:'doughnut',data:{datasets:[{data:[yTot,nTot],backgroundColor:['#1D8A6E','#DC2626'],borderWidth:0}]},options:donutOpt('72%')});
   // bars = COUNTS (Yes + No stacked) per sub-area; at woreda level split by team type
   let labels=[], yesArr=[], noArr=[];
   if(place.w){
     const bt=dm(ws[0]).supNByType; // {Type:{indicator:{yes,no}}}
-    if(bt){ Object.keys(bt).forEach(t=>{ if(bt[t]&&bt[t][supSel]){ labels.push(t); yesArr.push(bt[t][supSel].yes||0); noArr.push(bt[t][supSel].no||0);} }); }
+    if(bt){ Object.keys(bt).forEach(t=>{ if(bt[t]&&bt[t][supSel]){ const c=_supFlip(supSel,{yes:bt[t][supSel].yes||0,no:bt[t][supSel].no||0}); labels.push(t); yesArr.push(c.yes); noArr.push(c.no);} }); }
     if(!labels.length){ const c=supCounts(ws[0],supSel); if(c){labels=[place.w];yesArr=[c.yes];noArr=[c.no];} }
   } else {
     const key = place.z?'name' : place.r?'zone':'region';
@@ -2335,13 +2807,10 @@ function paintSup(){
     ws.forEach(w=>{const c=supCounts(w,supSel); if(c){const k=w[key]||w.name;(g[k]=g[k]||{yes:0,no:0});g[k].yes+=c.yes;g[k].no+=c.no;}});
     Object.keys(g).forEach(k=>{labels.push(k);yesArr.push(g[k].yes);noArr.push(g[k].no);});
   }
-  mkC('su2',{type:'bar',data:{labels:labels,datasets:(sel&&sel.inv?[
-      {label:'No',data:noArr,backgroundColor:'#1D8A6E',borderRadius:3,stack:'s'},
-      {label:'Yes',data:yesArr,backgroundColor:'#DC2626',borderRadius:3,stack:'s'}
-    ]:[
+  mkC('su2',{type:'bar',data:{labels:labels,datasets:[
       {label:'Yes',data:yesArr,backgroundColor:'#1D8A6E',borderRadius:3,stack:'s'},
       {label:'No',data:noArr,backgroundColor:'#DC2626',borderRadius:3,stack:'s'}
-    ])},options:(function(){const o=barOpt('',null,true);o.scales.x.stacked=true;o.scales.y.stacked=true;o.scales.y.ticks.precision=0;return o;})(),plugins:[pctTipPlugin]});
+    ]},options:(function(){const o=barOpt('',null,true);o.scales.x.stacked=true;o.scales.y.stacked=true;o.scales.y.ticks.precision=0;return o;})(),plugins:[pctTipPlugin]});
 }
 function supPick(v){supSel=v;paint();}
 // Supervision no-report CSV built ON CLICK (like the triangulation tab), not during paint.
@@ -2567,7 +3036,7 @@ const SM=[
   {k:'infVacc',l:'Caregivers informed on vaccine type'},
   {k:'ready',l:'Ready to vaccinate'},
   {k:'prevVacc',l:'Children previously vaccinated'},
-  {k:'poorCov',l:'Poorly covered area reported'}
+  {k:'poorCov',l:'Poorly covered area NOT reported'}
 ];
 let smSel='infDay';
 function paintSM(){
@@ -2578,25 +3047,26 @@ function paintSM(){
   // mode-aware SM counts for a woreda+indicator: daily = that day's counts; cumulative =
   // sum of per-day counts from Day 1 through the selected day. Falls back to the carried
   // cumulative blob if no per-day map exists.
+  const _smFlip=(ind,o)=>{ if(!o)return o; return (ind==='poorCov')?{yes:o.no,no:o.yes}:o; }; // flipped: raw yes=reported(bad)
   const smCounts=(w,ind)=>{
     const slot=dm(w);
     const byDay=w.smNByDay;
     if(curMode()==='daily'){
-      if(byDay){const dd=byDay[DAYS[dayIdx]]; return (dd&&dd[ind])?{yes:dd[ind].yes||0,no:dd[ind].no||0}:null;}
-      const c=slot.smN; return (c&&c[ind])?{yes:c[ind].yes||0,no:c[ind].no||0}:null;
+      if(byDay){const dd=byDay[DAYS[dayIdx]]; return _smFlip(ind,(dd&&dd[ind])?{yes:dd[ind].yes||0,no:dd[ind].no||0}:null);}
+      const c=slot.smN; return _smFlip(ind,(c&&c[ind])?{yes:c[ind].yes||0,no:c[ind].no||0}:null);
     }
-    if(byDay){let y=0,n=0,seen=false;for(let i=0;i<=dayIdx;i++){const dd=byDay[DAYS[i]];if(dd&&dd[ind]){y+=dd[ind].yes||0;n+=dd[ind].no||0;seen=true;}}return seen?{yes:y,no:n}:null;}
-    const c=slot.smN; return (c&&c[ind])?{yes:c[ind].yes||0,no:c[ind].no||0}:null;
+    if(byDay){let y=0,n=0,seen=false;for(let i=0;i<=dayIdx;i++){const dd=byDay[DAYS[i]];if(dd&&dd[ind]){y+=dd[ind].yes||0;n+=dd[ind].no||0;seen=true;}}return seen?_smFlip(ind,{yes:y,no:n}):null;}
+    const c=slot.smN; return _smFlip(ind,(c&&c[ind])?{yes:c[ind].yes||0,no:c[ind].no||0}:null);
   };
   const smCountsByST=(w,st,ind)=>{
     const slot=dm(w);
     const byDayST=w.smNByDaySettlement;
     if(curMode()==='daily'){
-      if(byDayST){const dd=byDayST[DAYS[dayIdx]]; return (dd&&dd[st]&&dd[st][ind])?{yes:dd[st][ind].yes||0,no:dd[st][ind].no||0}:null;}
-      const bt=slot.smNBySettlement; return (bt&&bt[st]&&bt[st][ind])?{yes:bt[st][ind].yes||0,no:bt[st][ind].no||0}:null;
+      if(byDayST){const dd=byDayST[DAYS[dayIdx]]; return _smFlip(ind,(dd&&dd[st]&&dd[st][ind])?{yes:dd[st][ind].yes||0,no:dd[st][ind].no||0}:null);}
+      const bt=slot.smNBySettlement; return _smFlip(ind,(bt&&bt[st]&&bt[st][ind])?{yes:bt[st][ind].yes||0,no:bt[st][ind].no||0}:null);
     }
-    if(byDayST){let y=0,n=0,seen=false;for(let i=0;i<=dayIdx;i++){const dd=byDayST[DAYS[i]];if(dd&&dd[st]&&dd[st][ind]){y+=dd[st][ind].yes||0;n+=dd[st][ind].no||0;seen=true;}}return seen?{yes:y,no:n}:null;}
-    const bt=slot.smNBySettlement; return (bt&&bt[st]&&bt[st][ind])?{yes:bt[st][ind].yes||0,no:bt[st][ind].no||0}:null;
+    if(byDayST){let y=0,n=0,seen=false;for(let i=0;i<=dayIdx;i++){const dd=byDayST[DAYS[i]];if(dd&&dd[st]&&dd[st][ind]){y+=dd[st][ind].yes||0;n+=dd[st][ind].no||0;seen=true;}}return seen?_smFlip(ind,{yes:y,no:n}):null;}
+    const bt=slot.smNBySettlement; return _smFlip(ind,(bt&&bt[st]&&bt[st][ind])?{yes:bt[st][ind].yes||0,no:bt[st][ind].no||0}:null);
   };
   // donut: Yes vs No proportion for the SELECTED indicator across current scope (counts summed)
   let yTot=0,nTot=0;
@@ -2609,7 +3079,7 @@ function paintSM(){
   function smAllIndicators(){
     const cards=_smAll.map(function(d,idx){
       const t=d.tot; const yp=t>0?Math.round(1000*d.y/t)/10:null; const np=yp==null?null:Math.round((100-yp)*10)/10;
-      const inv=(d.s.k==='poorCov'); const headP=inv?np:yp; const headL=inv?'No':'Yes';
+      const headP=yp; const headL='Yes';
       const body = t===0 ? '<div style="padding:24px 8px;text-align:center;color:var(--mut);font-size:11px">No report data</div>'
         : '<div class="donutwrap"><div class="donutbox" style="width:120px;height:120px"><canvas id="smA'+idx+'"></canvas><div class="donutctr"><div class="p" style="font-size:16px">'+headP+'%</div><div class="l" style="font-size:10px">'+headL+'</div></div></div></div>'
           +'<div style="font-size:10.5px;color:var(--mut);text-align:center;margin-top:4px">Yes '+yp+'% \u00b7 No '+np+'% \u00b7 n='+t.toLocaleString()+'</div>';
@@ -2618,12 +3088,13 @@ function paintSM(){
     return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">'+cards+'</div>';
   }
   function smAllRender(){
-    _smAll.forEach(function(d,idx){ if(d.tot<=0)return; const inv=(d.s.k==='poorCov');
-      mkC('smA'+idx,{type:'doughnut',data:{datasets:[{data:[d.y,d.n],backgroundColor:(inv?['#DC2626','#1D8A6E']:['#1D8A6E','#DC2626']),borderWidth:0}]},options:donutOpt('72%')});
+    _smAll.forEach(function(d,idx){ if(d.tot<=0)return;
+      mkC('smA'+idx,{type:'doughnut',data:{datasets:[{data:[d.y,d.n],backgroundColor:['#1D8A6E','#DC2626'],borderWidth:0}]},options:donutOpt('72%')});
     });
   }
-  page.innerHTML='<div class="sectit">Social Mobilization Supervision ('+placeName()+')</div>'+
-    '<div class="secsub">caregiver outreach and awareness</div>'+
+  page.innerHTML='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div><div class="sectit">Social Mobilization Supervision ('+placeName()+')</div>'+
+    '<div class="secsub">caregiver outreach and awareness</div></div>'+
+    '<button class="dlbtn" style="background:#E8833A;border-color:#E8833A;white-space:nowrap" onclick="openSMReport()">Summary of Follow-up Action Points</button></div>'+
     modeToggle()+
     '<div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">'+
       kpi('HHs visited by social mobilizers',ndm(hh),'households')+
@@ -2634,12 +3105,16 @@ function paintSM(){
     '<div><span class="indlabel">Indicator:</span><select class="indsel prominent" onchange="smPick(this.value)" style="margin-bottom:12px"><option value="__ALL__" '+(smSel==='__ALL__'?'selected':'')+'>All indicators</option>'+opts+'</select></div>'+
     (smSel==='__ALL__' ? smAllIndicators() :
     '<div class="grid2" style="grid-template-columns:0.85fr 1.15fr;align-items:center">'+
-      card(sel.l,'Count of Yes vs No across households '+modeCap(),tot===0?'<div style="padding:30px;text-align:center;color:var(--mut);font-size:12px">No report data</div>':'<div class="donutwrap"><div class="donutbox"><canvas id="sm1"></canvas><div class="donutctr"><div class="p">'+(smSel==='poorCov'?noPct:yesPct)+'%</div><div class="l">'+(smSel==='poorCov'?'No':'Yes')+'</div></div></div>'+'<div class="leg"><div class="legtot">ODK reports = '+tot.toLocaleString()+'</div><div><span class="sw" style="background:'+(smSel==='poorCov'?'#DC2626':'#1D8A6E')+'"></span>Yes ('+yesPct+'%)</div><div><span class="sw" style="background:'+(smSel==='poorCov'?'#1D8A6E':'#DC2626')+'"></span>No ('+noPct+'%)</div></div></div>')+
+      card(sel.l,'Count of Yes vs No across households '+modeCap(),tot===0?'<div style="padding:30px;text-align:center;color:var(--mut);font-size:12px">No report data</div>':'<div class="donutwrap"><div class="donutbox"><canvas id="sm1"></canvas><div class="donutctr"><div class="p">'+yesPct+'%</div><div class="l">Yes</div></div></div>'+'<div class="leg"><div class="legtot">ODK reports = '+tot.toLocaleString()+'</div><div><span class="sw" style="background:#1D8A6E"></span>Yes ('+yesPct+'%)</div><div><span class="sw" style="background:#DC2626"></span>No ('+noPct+'%)</div></div></div>')+
       card(sel.l+' by '+(place.w?'settlement type':(place.z?'woreda':(place.r?'zone':'region'))),'number of households reported','<div class="chartbox"><canvas id="sm2"></canvas></div>')+
     '</div>');
-  if(smSel==='__ALL__'){ page.innerHTML += regionSocMobTable(); smAllRender(); return; }
+  var _smAddReport=function(){ var _r=document.createElement('div');
+    _r.style.cssText='margin-top:16px;border:1px solid #E6C34A;border-radius:8px;padding:14px;background:#FFFDF2';
+    _r.innerHTML=_smReportHTML(); page.appendChild(_r); };
+  if(smSel==='__ALL__'){ page.innerHTML += regionSocMobTable(); _smAddReport(); smAllRender(); return; }
   page.innerHTML += regionSocMobTable();
-  {const _sm1cols=(smSel==='poorCov')?['#DC2626','#1D8A6E']:['#1D8A6E','#DC2626'];
+  _smAddReport();
+  {const _sm1cols=['#1D8A6E','#DC2626'];
    if(tot>0) mkC('sm1',{type:'doughnut',data:{datasets:[{data:[yTot,nTot],backgroundColor:_sm1cols,borderWidth:0}]},options:donutOpt('72%')});}
   // bars = COUNTS (Yes + No stacked) per sub-area; at woreda level split by settlement type (Urban vs Rural)
   let labels=[], yesArr=[], noArr=[];
@@ -2653,10 +3128,8 @@ function paintSM(){
     ws.forEach(w=>{const c=smCounts(w,smSel); if(c){const k=w[key]||w.name;(g[k]=g[k]||{yes:0,no:0});g[k].yes+=c.yes;g[k].no+=c.no;}});
     Object.keys(g).forEach(k=>{labels.push(k);yesArr.push(g[k].yes);noArr.push(g[k].no);});
   }
-  {const _yc=(smSel==='poorCov')?'#DC2626':'#1D8A6E';const _nc=(smSel==='poorCov')?'#1D8A6E':'#DC2626';
-  const _ds=(smSel==='poorCov')
-    ?[{label:'No',data:noArr,backgroundColor:_nc,borderRadius:3,stack:'s'},{label:'Yes',data:yesArr,backgroundColor:_yc,borderRadius:3,stack:'s'}]
-    :[{label:'Yes',data:yesArr,backgroundColor:_yc,borderRadius:3,stack:'s'},{label:'No',data:noArr,backgroundColor:_nc,borderRadius:3,stack:'s'}];
+  {const _yc='#1D8A6E';const _nc='#DC2626';
+  const _ds=[{label:'Yes',data:yesArr,backgroundColor:_yc,borderRadius:3,stack:'s'},{label:'No',data:noArr,backgroundColor:_nc,borderRadius:3,stack:'s'}];
   mkC('sm2',{type:'bar',data:{labels:labels,datasets:_ds},options:(function(){const o=barOpt('',null,true);o.scales.x.stacked=true;o.scales.y.stacked=true;o.scales.y.ticks.precision=0;return o;})(),plugins:[pctTipPlugin]});}
 }
 function smPick(v){smSel=v;paint();}
@@ -2709,7 +3182,7 @@ function paintTri(){
       // polygons + priority list); keeps the user's drill view.
       if(window.__triSetDay){ try{ window.__triSetDay(DAYS[dayIdx]); }catch(e){}
       } else if(window.__triRender){ try{ window.__triRender(); }catch(e){} }
-      // Always sync the map to the selector — including National (empty place), so
+      // Always sync the map to the selector, including National (empty place), so
       // choosing "National (implementing)" resets the map to all implementing areas.
       if(window.__triSync){ try{ window.__triSync(place||{r:'',z:'',w:''}); }catch(e){} }
     },60);
