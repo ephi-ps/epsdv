@@ -86,9 +86,9 @@ html,body{font-family:Calibri,'Segoe UI',sans-serif;color:var(--ink);background:
 .indsel.prominent{font-size:13px;font-weight:bold;padding:9px 14px;border:2px solid var(--blue);border-radius:6px;background:#F5F9FD;color:var(--navy);box-shadow:0 1px 4px rgba(44,95,138,.15);min-width:280px}
 .notify{display:flex;align-items:center;gap:8px;background:#EAF3FB;border:1px solid var(--blue);border-left:4px solid var(--blue);border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;color:var(--navy)}
 .notify .ico{font-size:15px}
-.notify-strong{display:flex;align-items:center;gap:10px;background:#FFFDF2;border:2px solid #111;border-radius:6px;padding:11px 16px;margin:14px 0 14px;font-size:13px;font-weight:600;font-style:italic;color:#111}
-.notify-strong .ico{font-size:17px;font-style:normal}
-.notify-strong b{color:#B5611E}
+.notify-strong{display:flex;align-items:center;gap:9px;background:#F5F8FB;border:1px solid var(--line);border-left:4px solid var(--navy);border-radius:4px;padding:10px 14px;margin:12px 0;font-size:12.5px;font-weight:500;color:var(--ink)}
+.notify-strong .ico{font-size:15px;opacity:.85}
+.notify-strong b{color:var(--navy);font-weight:700}
 .indlabel{font-size:12px;font-weight:bold;color:var(--navy);margin:0 8px 6px 0;display:inline-block}
 /* triangulation */
 .trigrid{display:grid;grid-template-columns:1.55fr 1fr;gap:12px}
@@ -112,6 +112,11 @@ html,body{font-family:Calibri,'Segoe UI',sans-serif;color:var(--ink);background:
 .lg{padding:2px 8px;border-radius:3px;font-weight:bold}
 .star{color:#E0A415}
 @media (max-width:860px){.grid2{grid-template-columns:1fr}.trigrid{grid-template-columns:1fr}}
+
+.brandbar{position:fixed;top:0;left:0;right:0;height:46px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 14px;padding-top:env(safe-area-inset-top,0px);z-index:9999;box-sizing:content-box}
+.brandbar img{height:34px;width:auto;display:block}
+.brandbar .ephi{height:36px}
+body{padding-top:calc(46px + env(safe-area-inset-top,0px))}
 </style>
 <style>/* required styles */
 
@@ -1189,9 +1194,12 @@ function dIMLabel(d){ if(d.imIn!=null) return 'In-process children not finger-ma
 function dIMName(d){ return 'In-process children not finger-marked (Inside HH)';}
 function dIMValue(d){ return d.imIn!=null?(d.imIn+'%'+(d.imIn>=IM_MISS?' (high)':'')):'N/A';}
 function dRemarksLine(d){const p=[];
-  p.push('Admin Coverage '+pv(d.cov));
+  var _admLow=(d.cov!=null && d.cov<COVBAR[dayIdx]);
+  var _supMiss=(d.sup===null||d.sup===undefined);
+  var _supLow=(!_supMiss && !(d.sup!=null && d.sup>=SUP_HIGH));
+  p.push('Admin Coverage '+pv(d.cov)+(_admLow?' (low)':''));
   if(d.imIn!=null && d.imIn>=IM_MISS)p.push('In-process children not finger-marked (Inside HH) '+d.imIn+'%');
-  p.push('Supervision Coverage '+pv(d.sup));
+  p.push('Supervision Coverage '+(_supMiss?'N/A':pv(d.sup)+(_supLow?' (low)':'')));
   if(d.prio===1||d.prio===2){const ob=dAddlObs(d);if(ob.length)p.push('Additional observations: '+ob.join(', '));const ar=dAddlRemark(d);if(ar.length)p.push('Additional remark: '+ar.join(', '));}
   return p.join('  \u00b7  ');}
 function dAction(d){const l=d.prio;const ob=dAddlObs(d);const ar=(l===1||l===2)?dAddlRemark(d):[];
@@ -1351,10 +1359,13 @@ function heading(){
    }
    c.insertAdjacentHTML('beforeend',' › ');
  }}
-function list(fs){document.getElementById('ltitle').textContent={region:'Regions',zone:'Zones · '+view.name,woreda:'Woredas · '+view.name}[view.level];
+function list(fs){
  const part=fs.filter(f=>f.properties.participating);
  part.sort((a,b)=>{const x=md(a.properties),y=md(b.properties),rk=v=>v.prio===0?5:v.prio;return rk(x)-rk(y);});
- document.getElementById('lcnt').textContent=DAY;
+ var _locName=(view.level==='region')?'National':view.name;
+ var _wc=part.filter(f=>{var p=md(f.properties);return p.prio>0;}).length;
+ document.getElementById('ltitle').textContent='Priority Level of the '+_wc+' woreda'+(_wc===1?'':'s')+' in '+_locName+' as of '+DAY;
+ document.getElementById('lcnt').textContent='';
  const _cnt={1:0,2:0,3:0,4:0};
  part.forEach(f=>{const pr=md(f.properties).prio;if(_cnt[pr]!=null)_cnt[pr]++;});
  [1,2,3,4].forEach(k=>{const row=document.getElementById('lg'+k);if(!row)return;
@@ -1469,6 +1480,7 @@ fitCountry();
 </script>
 </head>
 <body>
+<div class="brandbar"><img class="ephi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEgAAABICAYAAABV7bNHAAAvLUlEQVR4nMW8d7RdV33v+5llrb12P+fs06u6dNQsW3K3JMs2xhST5F5kAjZcSMaFlBsgCSSDF3KFR17y4KaZBDDOTYHLDQQZYwMBTIwtyRgXLNmSi2zJsvo5Or3tusqc8/2xj2xTnNi55L05xqljr/bZv/mbv/KdW/AfMBwI3E554MBxuWXLgfj8/8sHl3U6adqyXvB+QADO4d4pfdltI5wUCAGAwDrnpC8FobsLOEnB01Ti/fTnvs/7lkyKO+80NE8gYLuCfUYI3M/7WcTP+4Ru907Fzjvt+ZutPDbUnWrLX6Zz/hupmJtQMktOpzj/LFULBnAW6wzgsMaAACVApAHhQAMVQKkqVh2wkXxQ9up/EC37j790bbdTwcvX/nmMnxsgt3un+sSzd7pbb8UCuJmtbyGx76BsbyTtteBiqtMRUZQQRknijAAhwDmlPCFSqRSplEZK0J5CCIE1DURSMYjE4QxgldRKkE6BSuFqBqHcXgwPEXm3i+EnR+HnC+r/GJDbhQQQ58FMvO0tdmH292Ps1rBa48TpWRYWEluvhTaKYmWtaE4LK0BIhLAgLEpK/ECTDnwy2YC2tiLFQoZC2qG8BGuqWNdA4xxWWITnnBNaZCT4Aup2Asnf0FCfF6sPjQC43ShxE+b/N0C7d6NuWrwBd2bHm+cnFj7WCKOrxieqnDpTs40QixRKKCussTgnsUYgUAihcE6AMIuOxyKkRUoBwiGlQ0lFSzFLd1eazg6flgIIG4FxYCQIA1hjnUB6QpGXELoxcH9bmxN3ZC94+qxzOxWfuNOdfwP/PwG0axfyxhtRW7YQu/rWpZVn4y+MjU9tm5yZY3QiNDFpEFmVWI/EpRF+C9lMgUK+hKfTSOGhtIezkLg61sY0wgqN2hyN+gzGzIOro1SDlI5wsSXjBwz2dNDTmaW9wwcqJEmIUAJJgnPC4YSVWiryQGImTMX+pV5z9JPQnHZC3Pm6rel1A9q1C9n0M4KRH6z4WHmh+pGx0bhtpiwTK7VoGKWMLJIt9NPTv5q23gvIFIfJZdsQpFEyhZIexjStxSmHw+KSGBeXiRrnmJo5wuTYs0yMHiQqH8UlGl9mUdaQ8uv09muWDOVoaytgkgbOLDQduvEA7ayIjQysRmSwzu2rT829M7fl9Dm3Z7sWO/Yl/2GAzk+pyQOl3jNnZj5amc9/eH62naqsm9A6pUQPfUuuZOmKq+noXIeQrTSSBiE1TCzxdBZQKKURUmBNgpA+zkpc7CABIRI8z5AKYkxcZ27qLC++cD9nTv8Lxhwn8BuIBFIqz8pl7axYVkCrEGcjZKIBBTLGOOuESxvZXtNUqs8R+f+XWHP0ntdrSa8Z0Hk4B+5J99YWUt+XIjc8NpU2jSSSUbBELF11JWuGd5DNLSeKMtTrBpVKkc8HeB74qeyrnPn8G6qbfzUsjXpMI6xiYgCfTK5Ko/E0R575JsdfeAjMPJ4EGc3Q0y64YOMQxZyPrcdIqUFGICKckAhjDL5TZDXM2Q+L4ec+7fbf4YktH4hf5YZeP6DzcO75VKk3ldP3C1laM13JRgbn9y9fx/Alv0GQXUZ5PiYxipa2PJm8RqkQhY/AZ+TsOdKZgIWFMqdPn+Syyy7j/ge+z8aNK+nrHWD/E0/Q1dVNX+8QRsR4SBomplyOaSyEaDwKRahVnufJx7/Mi8f30RqE6GSKwJvngnVDDPR148I6ECF0iJMOkfiQSItvLPmsnpvr++3Wtd+6zbk7PCH+bUj/JqDzcP52F70dpdKeVNCxaqzsJ16qU2++7B2sWHs9ozMRxqQotXWSz6WILQjhOHriafbct493v/NX+MpXvsoVV1zKw4/8kNOnz7B582b27XuQNavWE6QyPP3sU2zcuJb3vvcWZsqzOBuTK+axTuMLj3rFMD02QzoIaSvFvHjiRzx6//9CJ6dI+VNoO8nqZZ0Mr1mGTeaBEEkGCDHaUYvyTqQ229zQOxRc+GGh2z7t3H5PiC3/KiT9WuDc9X9v7UkVTz8gM9GqsYVaUmzfoHfc8BGEGuTsaI18e562YgfVepVDTx9lsG+QTCbN1770XRYWFvi7v/8CiWlgbMTKVSsYWjJId1cfJ0+cpbtriDi2eCpPV1cf4+PT/O3ffhEhBStWLufGt72F8ZlJ2kt5+pcWWZib4+xond6+G/ilm1az57ufZWZyPy2ZFM8dHQd7ljVr+7FxGawm1pJynEMXrxb5jrdL1IYE5G0uSRBCf9o55wkhXhXSq1rQ+dVq9y66s+3ZPSrTtWZ0IkgGV2zXV13/q8yVM4RJjo7uXtIpxakTozTCMg8/tJfnjzzP8iXLyaQLzJcrDK1cRmupQDYbsHr1KkziSKXyWAtSJkRRnanJSQq5FkZGRnjskccYOzdJrVbjzW99MwefPMCGjRu4+JItpNNZwjBkfGyStIK2lph9936W08e+R2uujkgmWLGyk7VruyE8S8OsQnbuxO+4AUsfxkonJUaBxvAhocVf7dmzR+/YseNnrm4/04J27UJeDfKi25Z2eKq8h0y85tS0SVYP36SvuO7XOTM+Ti4vGexrBxSnT53h9s/fwS23vLPpGIWkf2iA69/4JpIkJEjnXzp3QoL0BDEGIx0pZ8gGKbIDQwC0traxbu06zp46zWM/eowg7VOt11izZph0OsuhQ0+xevUqBgZ7GR85x+S0ZusNv88jD7Ry9MiXKRYUz558EZXNMTR0PX77tcj8NcSUMICUsRAoRUSCLz/tnHNCiL/e7Zy6SYifWt3kzwLU24vacSuJofyHmXxxzehMW7Ri+M36qjf+F8amDNlCD50dS5gYn+Lg/kMUWwpUanNMTk2wctUafvt3f483v/UXUNonSOdxscFFFtdw6FDjR4ogVmQShYcP+DinwCmcBSElA0uX8PZ3vINly5ezZcsWSu0l9uzZwxe+8A/U63WEkHT396CCgHOjDbZe/yssHb6WuXobMct56vksleBGZP4NWNOKshLPGTQxIjHC4CRgnpsqf3L9jb/cdZMQhl27forHT1nQot+Jd/8lH8218Jsjs6mku+dSf9t1v8nZ0YggU6St1NJ87T99C18U2LTlAv7w43/I6OgoF154IcYYoihCKYURgkQrFOA5aIaYrpmD4cA1b0G89K2ZSVgszjqKhQLXXHMNMzMzjIyMUCq1Mz09TZIkRPEC3V0DzDrJ5FSZ7df+OuVKQHWuRq59BfsPW65uy5HSqpmVSIlDIqwj8ZW8+9nj9u/uvi9QF27f07Nyy7Zzt35kml27JLfe+lJa8mPEdu1C3nQT5ht/3r8ik2n97zN1ZfH61NYbfoupuTw6aKPU3YoUUGtUyRcKTE5OUq836Orq4sILLyQMw+aJpcQ5B0JghcEISywsiU6IVUii6iSqhnUJzrhmZQiHExaBRSPxpMRaSxRFFAoFbrnlFjo7O6hUKniex+2fv4MoiWnvLhG7NDMLeXa86YMUu3cQi9VMTWuOHDmFkAJnDcaCVQFV3+ezD+zn41/6hjxbd1Z1Lhkudg/9HuC2/wSTH/tj3WGEcwir+JLwunIL9TZ75bXvFtLvpx4p2jvbqNTK/P0Xb+dzt9/GW2+8ns7eAkmS4BxYa/F9HyklSiq01vhWkKsrMpEkFUs8q/FEQJgoFiKLVBqhwciIxNVwroHEIIxDGIHWGs/zmtZoDO95z3toaWnhq1/9KsVCOwefeIazI+N0dJUo12JQOdZs2kwtCSkoy5mjB5mdOA06wXqKw+U6v/OFu/mb7z6IynfhCu06qsVxNt/z0Yv+4nvX7Lv11mTn7t3qp6bY+SV9959mbii0pS45M+0nK9dfr/uXbef0mTKdPT342nHu3Dgnj51kamqKw889zc3veTupII0QIESTd9NyHM5B3S3wzJmD9A8MIf2Amfo8z5x4nv1HD1KJq1y69CI2LllNZ2s75foCk+fGuGTVxfgujRBec/qdrzMKQRAEDAwMcMGmC7j/vr3801fu5JffeRP9fV309HQyem6Uvv4eJobamDk1inFVnj52kCu73sb3j57mz++6n2PlCrlSLwIP43soqaWnpMNP/QG7du19pdGIVwIC8M+17xWp3FVlu9L8wjv/VC1UWkkFedraitx3373Mz82zddvVHDzwDNfdcDVCGqT0Xz6VA4fDWoNSmh+cfYi/+MFtZNMFnFPEGCYXZrA+4AlS8z55L0shm4FaTD5J8/63/VfWloYRViDkj0cicRwjEAgluP9f9vL0oYNs3X4ZpVIHS5YsZX6uQhhWKBZyfP/eH0DaUvUsIzWfbzx2iimRhvY80rpmAJrVOM8ji2+yQYuKG9Vrf/T+7Q/s3L1b3XnTTUa/0nru+h/dN2TagqtOzybmosuvU0oP0Ihq9PS2ILA8+vBj5HKtdJQ6uf76NyAVJDZBvHKmChDufGVZUKlHjNfrHH3yMDYCYUSz5qOaS77QEoQlqoX05Hu5ePUwFVPHopDyJ3yABV/7zWqthCuvuoz1a1fx2c/dRuCn+fiuP6LU1saZUzUEAUuHN/Hgoce478kDPHFqjs7hKwiyLYREBCkfITQy1QTk8CDjI5X4A5zbO/GJveLHppjbhbxLZf6gbGOC4lJWr7mJmemIUnsaIWF8ZIwrd1zLkWMvcuT4MdauWc2Lo8+QKWbxVQs4QbO4bJuO2ULGS2NdQs5oZCKxziMQKXwrcM4QEiGNRMgYPwlIKm3EqkrkqpTjKmFi8VUdzwoEgtAJEi0wjQRTazDYNcjRI0cZWrqabdu2cfi5w3R2ddLSXmRqboqBld08cMej/OjEGKJ7GTUNWltS2gedxnop0kIhnUZqraI4sV6x9ZpL7zm2bd+tO/bu3O2UPm89d/9F/sZs1l11ds7ZjZduV0GmhCtPUyx0c/jQYf7+f36evhUr+PX/9htILfnuE9/nzofuJmwRZFs0uLgJSDikkDgECp9KXEcFAUEux9xsiNQ+KemR2Ajh+VjjY20dI6q0dfnI1Bz/9MiX+Vb8AIlw1Lw5vMVFN9GSWAjKM3N4seFD236TzRsvZnDJEPsff5x7772X97///axdu5bp2Rl8rbj04i3sP/1dEmep1Sp0tHc0K5meh9AeUsnmQqE0KO2U9hDGfuKy3affNPHs3ljPziKdw97z1967hI6d53fa5cuvk+Vyg3xLCucMPb293PTOd3F6dJQzp07Rt6yfOVdhMp/wyOlDiCNVUgocCQ4LzoHQJJGlu72Lns4efC/A1CtUwzJJIsjl0wjPMTdbxk8JIlknF9RY2p/lO/c/xuycJOMpqsqhbJOQ9SXVqEZnoYUtK4cpmypSCDytGRkZYfPmzfT09ACQzWaplOe5fsd2/vF7+5jDEIcNhAOVSmGVB9pD6kU4WiGVVjYKUUGwXQZJ975bd5yQ738/yZ2fKLRi/TfOVowodaxTLS0bqNZC0rkAIRStHS20dnfQ39/PyuXL0SZm++ZLaSlkSOoNwnOSxtkU4WiKaDQgHE2RnEvTOJsi1SiwenAFumbxK44rVmziLz58K1/+kzv40q2388nf+BjrO5YiyxGdac2mjiEmJyImawmVqTKNUUk45lM/p6idBXtO482kGc6vY+uabVhnSafT/Oqv/iqlUolPfvKTnD59mrbWVuoLVZb297Bp3RqIQ4Q1hFGI8gOEl2p+KQ+pPYT2QXtY5SUy1+oS590EoIXA/fOn7Vad0a2z89oOD10uI5MGr4ansxx5/gW+/b17mSnP8otveitu0fvbhSqdJkXJpFiQ4CufxIZI2VzmpdAooUirNBmr8WuOy5dv4jO/8/+wNN+DIcICl121ge2r1vPuT7wPXYkIFiQ53UclmiPfmIdsK9Y4tBBorYjCmGKQwXMQuQZZmUUKydTUFI8//jiFfJ7jx48zODiILyUysVx6wXp++PxJnE2aEb4fYIQG7SOUxEmF9LxmpC2VsCCEVm/avufEp6Vzu6RS/JKnjXOuYHv6N1Op1wlyHtZ4jJw9Q2V+jI1r1rL5ootIogTnJGkvx9LOJawbWkNdzFPzZrGZOqFfpq7mCP0F4vQCDVFFOIWH5ua3vYOl+R6SsIGIQVpH0phnXedq/tPb3kW93iAjFDZOWNYT8J+vXcmCmyBKV4mCGjVdpuHV6RxsI9+WxgmDEAJjDW1tbfzu7/4u11xzLUopxsfGaS0UqC0scMG6YfLpAC0EURyDUgjtIbQG3fRFTnqgNEJ50oQhQntXWdnSo5+7+3+2+lrcOFupilxuvcoVBpkPa2RyaSYnQ469cJRf+6+3MDPjiOMY50liKahGgslyyMxcg/Z8Mwyo1hbwtcQLshgjUNriaZ/5KCTf2oaRgoZLCGQA1uGkI5AZEgPGyyJzKeqNORI1T3efY+2ARuyVeDqNc45MOoMU4DcKuBmNsh7W2ZeatOPj43zjm99ACMGG319PkEox0wjp7minq72NctUSxTEO0L6PEQqpVBOY1DgpQSrhtEz8TFbaWvlXdCXx22Ors2HsXLHURypIk1Rr+CJNLicYHZvgf3zyr/ngBz+K52nqiUUqQFr8jEH4dSoTC7R153jrxVtZ0dJFsXOa0VM/5PFHT9Nq86S9WdpXDtFR6MZHkKgFEi9DKtZY6aFkxGCxhcry7fils1zQ6bOiUCOTrnPthssopQdBVfnRiec4MTtBw6vh59Mo6UPSzPuEELS1tfGOd9xEuVyhpaWVsFGHRNIT+HS3F3i+VsM3DptEuFQKYQRCKYSUCCU5H3g54XBSSiN0nw5SqQ9kc5nUeC1JssUObbRAyABNCp2J+O3f+W1MkuB5zVaxQqCR2CiB2KCNRMZZtNJ8/L2/xTI1xGxjN+MrfsS7ty3j+KTj+eQkJ6c7Kfg5pBWEWGok+GiME3jC0J/VHHUp5u08U6fO4tkUFw2u4OO3fJDNXZcQMcfNf/Zhjp4ZQfgxYDEGAq2aqQ3Q2tpKa2srYRiRJBE6lUKYOmkTMdTXTXL6LFkD1kZYr1loQcomIClBiuYXaFOtIoR4n6zW6sKYBJwgnyvgXNMZNjMHSbGYp63USr6Qw1qLFgLpwHNZbD1DXA1IZIKVdWw5wtayuHADR8d8Qldj8yrBus5JgrljeNbgrESQx0OCTFBO4vBxSQWTnGW6XmdGl3h8qp2vPzxFOg7BxThTJYgdgXEkcxWo1/GleAkOgDEG5xyplI/WPkpIPK/ZxS2VSgjRTF2MtSipQEikaoJxAnhFzocQCCGQlWotwjmEUPh+QBzGi1ExRFHCXV+7m6/u3k0jbGCtXdS2gLAxmZRHvpCmmq5RTVsSnUVajQnaOTYb8MRTEbMnLN2JYsgL8KxFeCCFRAOCGGPPh5SKkvbJpgbxaGV6psFjzz6H9DUJCYlS1D1Jwxf4HXkoeIQkCARu0QlJKTl8+DBf+tKXmJubAxxCgjUW3/ObeZ0QWGORsjm1EAohmxCbedLi/xZhyY5S4T2VGginlNIBQmpSfgrnQCrJ1+/+Ol/96tfBeUghgQRcA+GVWWicYXz2BeKGI64WEa5IXJtmcv7b9JZOsaarnaCxmoWTS1DzRcrz05TLC9ikjo9DCB+0ZaoyS1z1qRxvEJ1uYV2ulw2pea7f3I/wMjiRJiJDIw6IGprJyTrzsyHCaaAZuVtrEULwwAMP8Md//MfMz88uZoOCOI7JZNJopV+uDMiX/Q/i/DRrWpUTTSsSQqCzGb87TixCKCGFxjqBQ7zk+P70Tz+FdQrt+bxkPtIhpCXfWWTNRcN4gUdbsQR6AduukJMHeVO3YuoJge65jNUbVrJsSyflimNy/BT1hTLdvUtIeXlGp05jW7Js3rCNqy7YjggUb988wbe/9Vus2F4kn29gmUMyz0B/ho1hPxcsLzGQi/FcAydyTYsWAmstO3fu5JprrqG9veMlq3K4l6aXQCw+vFycSs2p5RanlVusSJwvTug4cQ4QzkkS0zR3kxhcU2hCb283xggsFq0UGIE1DpXuZnLBJxRdrLm8D1yDv/rBd9F4DJoam0cty/t2EPVs4Z8fuZcrL30jawY2Ymsxst1x6EeP4VIe6zZtwhUKuDgkLWIaLkcp77Em6OahB77PPf2DFJJBYlUh6mhheGArM7NHmWk0kMrH2ebDSykxxlAqleju7iaOo2baswjpfJlESoFadMpONo9FvgIOTQ9zvsiipZSiKVZq5ipKCqI4RBBwvq6gFKhFcEoqwMMaxeg5j9niCs7UWrAqpJEEGFlk1bkZ1sSOlnVv4HjRw7bEHDxygLRqZWlxEIWhlC8g8j6ZQoGJuTq+DqnLGg0vhS8DhpdfyXMvTnHPTC8ptQbnFiinNUmi8Uwb2cksIT5Z7MtvN+B5Hs65RX/bdMi+lyGOE5xwCCGRi1OraVnNxPqVcBZ/awLy/ACkBVnGhjMoUcdgiWyCwvHD+x7guaOHOXbyJO9772+wZu0yElOjpHzaWldxZmgV6SBBhyVapE/GaDbOjbK88yQyv4y1QZFg4/X84LFH2X9kH5kLL6c314UfeKRECduAjAipVc+xYDXpYhsuo/B6+ln+fJYLW0o8PXAd2aSMLxWZ0GNKjpAJTxBgMQ4UzfTGOcehQ4do7+igs7MdiyE0NYQtsDBXJfIjEtWK7xVBgtByEYhDip9sETarrjJI66ZYSUlmp8cRzuCcJXYQG8sLR1/g7MgoGzZsIA4TYgcIg8ZRDAIalYik3o4uZzG1KumFZ+mpPoReupZGsZdaWGR162UMD65hYuwM+x57mgXXRpTvQrQqQuGo2pBanGBVFh0EnJupoXoH6Gvv4KIjz9A+V6ERKWzdpyI95sM6yzQo7I+porTWHDhwgM/f/nkOHTqEpBkjWQHjc2WQEislOpXBCfmSlfxrQ+eyKedrhBKSSnkOa6oo0pjYEvhpLr3iSm5a/i4mJicIqwYtwFgBwmd1fwcPnZ0l6y9BJCAyaTonj7NMHqXQ/XZaiUgSS8VYlgwM0nCzdHetxNOWVDbAYgiCkLhhaC0MgksRVUJa0ymUWk2x+xI6Dv8jfrSXpGUt6UqOed9DVOus7RgEpxHCvhQLPfTQQzQaDXp7e+kfGCCyETjBgjWcK9fR0kN6Pl4mTWQt4jVoN2ShoESQEigpqJQnqdUm0MpgowQpFb2D/fztF77AZz93O2GtQtioI2WzmL6yo5VCdZqinaARTCNchvzZM3SvGiBb2oB0ITp9ApU+Q3uhn23rb2a4/ULSwhCYaQJZwxLjF/PIIEGnR8jkniebOYYkJjO0kUZnCj07TsrlwEHKNRiIYga6u3ECpBCLPqfZAZmdnaWQz9PS0kojjPB8nzPleU7OzKJVBpnK4oIUxtrXpG3ROHdXX1fwn8dmGiZO5tT0+DG6lgxQrVUp5jOAY3DpICuWLOXOr/wj78z/F9av24BLLGu6OliZ9zic1Jns8Fg2Ns6G6iN0D81B424mwgms9yL5MIvWq5HehQi9CnQbMsghA4mzeZSYJJL3k4RPwnwZkWSRQTupwHBRj+To/jPQ0ca4r3GzZ7ncS7Gk5FNzddJ28WGB2dlZrLUMDQ2S8lNMjc9SzLbyzLFTTBmHVD5+Lk/iaRACyb8tg9X47khnKYNWVadsndMnnmDJmm3MzxmixNJWaiWdz3L3l+/iguVLWTu8hkqjRk6lKUjYtmo5Dz5vSAZb8MYfZfOSSboLp2H6T8mm54m8COdKhO6LOFPCuevI+jcjsiuJdZ5sZS9R+Ss0Mt9Dq7NkVRFcjlAtELkGS9aspPfJeY5MPYe3Yjlu6jg3bBkmcHXqTgAptKeYnppmcnKSkZER4iRBAPV6g87WFPtPnKTu+wRWkym2YpRG2tegEHbOasJyqdBewPOmUC5mdPQFwuosQhSJ4whPK1avWcXadesYam/hm9+6h9UbLmDt0GqSKOKqpX1ccuwJnpnw8XM93Nv2dg6ePYV0dXILNdK2jFKWbDCJ76bQyRP0dIQE6X5MKCnPPsJcPMukWUasN5LULYlNsbCQoUoRHfk82ZsmLHTSmH+WS/rqrB/swNYbeFpjMMzPzPGVf/oKWnvcfPPNXHLxJcxXymTSAQtzdZ4+fprE9whMmlyhhblFifa/aj4OZJCSmkbtIQot7+tqy+pozDJfPcmpU48ztPQXmJ2dwgs6GOzo5aILNvLde+5i85WXsbRvkCSJAUfeOj544RCf2Psstd6NfDX1n/DmHdIk5GydQjSLZ8ukY0chGicfPsb21WNcsmwPmeR57hm5mocnrifMXsQs7YQixihFbLuo00bozdO1OoOelQzMz3LzlRehncWpFNI5GqbBY08cILHQWKihUKSCFCMjU7S2d/Dwk0cYn5nHb+nFK+SRmRTCuUU4r+aEnJW+lLYRPqnnZxrfLvqhHOrOyrEzdZfVZXHsuW+zcvX1zWXdKDwhufCiTbx4/BhPHDhEX/8QV1x+BUmSEMcJKzq6eOcFDW4/+BTFZZuoeGk8LYltxGS2k7rycM4jsJZCfAXHxh7msdlnKYT9PCZuZrLtCmItqakMidBoBCkbEVsDQSemOk56+hAfuPoihoMOXBKC8hDCsTA7yzNHnqO3q5dorsIVV1xBtVolsZaG9PjmoWfBy6CNIt3VjvU8RGKQWuPMqwByGJXR0sR2ry56vrEu+lFpMHNF9jljk8hTUxPPMHLmB7S2/SIzU5P09BTI5/MMrx2mXq/zw4d+SCadYdOmTUglqEXzXL9qkKQe85VnDiKXr2HBz5M0NH5kCHSDWIY0hCRKdTDf8QuM1t6Mj0EWEmoiISbAIfCtxI8tqVBQ8hVm/izu3Iu8/fILWNvbTWJjlFAv5Yvlcg1fKU6fOMZ7d96MtZbKzDwdpRKPHh/hqROjuNYuvFwbhZbOZoiCwP1rsnIhlanF1uF+KMVlxxacsd/xCtr19ilnoiq+rPPE/t2kUzVsXCMKy4RhxNrhtZTLZWZnZ3nggQc49sIxDj55EE9KXG2BX7xgBe/fspz0yUP482fIBwYPRTrMkoscxaRCPp7BtxWkr3GZFmKbhziHcplFAUQDJ+t4BUtj4RTto4f59as3cs3SPlQcoaUAJFIJFsoV7t+zl7Nnz3Dt1dvo6O/B1kPCKMHqgK/te5x6Os8CHrnOXmSQwTmJEt6/EgM5J7WSNrTjspH6ngRQpvurVJwYWpboYi4kI9JMjx/i2Atfp6Mtw/R4mSBIcebMGTo7OxkeHkYIwe47d5PJZPF1HidSxHGDa1cP8d+v2cIl9QnE8UdJ3CgL+Ygw4xGJDFYUcSKDVZJQRkTGA3J4KLIyIa/KePUTzJ15iGX5eT7y1q1s7e1ARiGBcIS1kDCKOHH2HH/2F39FEidcc/U2li9fju97jE/O0NLXy/0HnuHgqTGiTAsu20Kxqw+DbCrgHMhXAeTAqJx0KPmtq6+mpt2e7ZrW/GgyN/VItiu6bOWKvH3yYKKyacP+/V+gp+9yNB1MTU2ydu1a1q9fTxRFfOYzn2FoaJCHH3oE7dKsGB5iJq6TNXU2tLWy8s3b+ZcTJ/jmyVMcOXcWS5FU0EPiFbGeIvFijI7QSYJMYmx1Fq8yRSqcZk3BZ/vFw2wZXELBGUgiUjgcmnMjZ/izv/wrdt78Lubn55HO8Eu/+BY6OnuYGBnFZLOcbsR88b5HsdkWykbS3jeIymSJQocQTfFWM8X9GZCsUyZEOCe+dqsQVrj9mz2x5UBsjqz+hCyxKx7PJ489PqvPlSvM2TTdXb/Bm278KCdGjtLd1U0mm8VaS71e57Of+ywnXjzJDW94G+mWgKu2Xk7gCTydBpqd+mlrOT42wTOnpjg1U2as0aBGSCRDrIjBpEkJTX9LnpVtRTb1dbGho50AIIlIcBjjcIkjyDbP+7+/9I/sf+IJbtr5Dtrb21i1ahlzcxNMzNbJDy7hj758L3tfGIVUEdnRTde6DRgdIKxEYklkU4oo3E8I7JxzQkts4uZE2l+27x4WNJsPJG4XkpbC5+2U+aCXE8U1a/Ju7JGyKOY7icIGhw8fZvnaIUZHRunv78PzffL5PO+55T08f/QI+x7cy/TIGANtLazfspn/9fU72bF1O735Eh1RTGdvict6O6kRMRuFNEKHjWJUbMn4PpmMTzZIL+bPgiSJSBwIpdFSMjs/w9//3RcptZa47NKLueXdN5MkEV0d7SxfuYxabY6J6Vl6lg/zpfv38+DhE9hSHySCgf5+nPaInUUJgcWBsE0p3o/FQQKHtV7eU9Fc+Of7LhRz253TWgic24MSXY+Pxc91fEYWwj/Mx5uSjRf+gj52tguR7+SpF59CFH2GeroYGznFQF8/eGn6+vto7+pkvlrhTNsJ1m7axMGnnuI7d3+To08e5GMf+SjZYgtRVMOJGE9K+vwizXbCy5O+eadNczcmAiTa0xw+/DwHHj9IEod0thT40WM/4OzpFxhc8lHe+773ARFhZZKZsQqdAyv51jPH+eyeh5FtXTTCiJZVm6C9l0acNOs/54WQVuNbmnGU1sRCIpywni9EWGlMytb4DnY5uReagYDbheQTu6g++7nOVG7b0674jjav5S3iwP6T4qmTB8gGPq4uuHjzZjpLbYyNnqNvcAl+kEYpQWgSojjGU4qP/v7vc8nmi8hmM9TrNbZv28H933+ASy65lO7uLk6fPkVbWxsDAwMAlCsV5ufnCcOQsNFg7dq1JHHCyVMnGRkZZd+DDxNHDYZXLSMMq6xbv4F1GzfhBWni6ixjE5O0DKzkhy+O8pdf/jYLQYFpKcj2DtG5egtWSJwxKKV+rAMiF3+PlMIhkcYluYLS0Vz14w9clfvj7Xuc3rdDJC/Xz5xTQghjyqf+SOYGP94wJJFM9L7HH6J88iytKmAhtFx85TY6u9s5c2aEnlKBlmIGI8DYZuf18cf3c/XWHTz4o4f5zOduZ/MFm0hqDUqlEp2dnTz11FNce+21DA0twfc9PM/jU5/6JOvWrWdkZIQbbriBF154gYX5eZ586imG168nn06xbOkSLr/sYrTvYS1Mzc5Tnm9Q6O/hu8dO8Pnd30WJFqouTdjdTueFm4AszjjkT8ABMEJgJChn0cY4T3lWOjElIr3h0vuZ/sQncEL8uJeyzu2SMPiZBH5TCNPii9hevfEq+eTco8xOj5Dv6OMLd3+XUlcH777prcyPnqG6MEV3bz++Unja4+qtOzBJTH93L5ddcjlDA4OcPHqE6elpxsbGyGQy7N27l1QqxY4dO7j44oup1epYawnDkPvuu4+Ojg76BwaYnJrijdfsoLuzg0JLG7iYqB4xMTWPEZAfGmD3I4f4+3sfIMmVqJuAoKWLvuF1RMJvwpES5368LAtgRbO8qq1Fu9io1oyuT9c/s2+bN5lvGovlJ486b0WRSz7ioT5lTdVIl/KSyLHv4LPc9f19PPTUc8wslLnxDVfx2+/7ZUoeVGcqFHN5iu0FSJq9b+GlAGjUY1544Xk83+PkyZOMjY0RxzHnzp3j137t1+js7ORP/uRPuPzyyzlx4gRXXHEFk5OTXHLJJfhaI5QC57BxRKXSYGK2QqGjlWpoue2+few9cpqUyrGgM4RdXfQMryOtM+gYYtncGvuzhhHNRT6VxFYEmrpyh+sm2rHseH72zp1YhPjZ2dpLUy0xD0slL4e6mUpS6s++ch93fec7VK0jSKeIFuZY0t7Cb733XVy9cR1RtUbSqNKeT5PNF5r7thwYLEq/rH61zr4kV/F9n1wuR61aRSpFOp1GyleoEq3FxjGVSpW5agOXSiNyeR49coKvf+cHPBXHJNkiXuiT6R0gs24N9VSKVOjIxZJQu1cFZAUo60hZYVybr8qz5e2PXFl4cKdz6s5XbEn4WYAEIGvQJeC+k9PVNbd+8Zvu0Ni8KrZmmJ6doDwzSSAlMraIesTWi4Z5143XsXagGxXWcI0aKT9DkMmTSnmoRaWqc+6l9ozSCmst1rlmO6k5x8G5RRV9TL1WJQqrqHSOJMjxwsQEd+57kkePnSNO54lFisTzKQ0toziwhFh4OKcRTf06VryccC3W5puLGGCUQRqZ5HRKRXU+dP828dc/CednAgLYtWePvnXHjuTP9z715vsOnvz28+fm43Qx0FIb4ackplFlfnKGpBKSlh4umSetYi5fv5q3XHUZ64f6SUtBEjenhpbNnlQ6HeBpjZICa5vNFk9IkijGWkgSS9gIcTTVrDLjM2ktR8+Oc/+BJ3ns6CnKfoFGpo2ykbTlS/QuWYbo6qBmIEgkvtPUrSFJSQQGuVhZTYQgVk2rSScCRxKLUsYTUzz0/avEVnY5ya3ip1LYV98OtQip69Z/+GB7R9+nZaWWOE8o52uhPIVvIZqtMDc5gZMxnhIk9TIpF7O6r4dLVi1j48plrOxsoyPtoYTBJQaMQwsQFiQOcDipMFISI4mVZrZWZ3xmnqdOnWXviQlOjk7g/IBI+TRkCtJZ2rt7aR1YjvHSJEnyUkv5pZkgHEYaPCMQThJqSUOB5xz5uk10MdDVKH6yYbw3ZGrM79uLfV2AXglp06e+9iFVbL0tsWHitFZOSaGdpJjKYaKIublJygvzmLBKoBxeHKKjBlkl6cnnWVYq0dPVQVdnB23FPJ4UKNHsctZMg7qQTC7UOD09w5n5OU7PzjNZaYo9PZHDCIVRPqSz5Du7ae8dwEtnqTtF4iQ/1dJqIsIJixECaT3SiSRlIMImC91Kh6E92DhXvvbwDS0zr2Y9/yYggM133OEd+MAH4k233fMh3d5xWxTHBqmk9lJCoUl7AZ6UxHGDSnWe+dkpTL2CNgmesyQ46tLhEotcbF+rxdauXBSdW+ewRuCQaOmjlY8UHrFwhOmAdK5ArqWNfEcHXjZP7CSxdU1Vhnv1yqnEEkqFQ1NsCHJ1krgDPSqTQyNR7drRS4vT7HaKm356n9hrBtSEtN878IEt8UV/t+fDqtT5l3HUMEL4QmpfKqHQTuL5CulpjIuJwjqN8gK18gJJtY6KTLPNay3OGqRobleQblFFagVWNmVwVipUKiBIZ/DzeVR7G5lcAel7JE4QGosTCqRC2AT1KnSa/thiUDilsYlL0jmpZbV+KFeJr73nDf82nNcM6McgfWX/h7zWzttMFGGds1L70kfjpMCqpoLC8xRKymbnII5wjRpxFBNFDeIowthm10EAnpVIIZGZFDqThXSAS3mIlI9SKYTxMcZgzx+xKDJwQqCdbdaXf8awOJwUqESQOGdMr6+Seu1gpTJ73fOX9r8mOK8L0CshXXrPkQ+KTP5WBC02ihOtfY2UOCWaQkhAOIkvFVI1P11BiuZDNVUmzb1hCEdNSwwCDWgnUUYgjENah3WCSKaaaFzzuJeBnP/5Ko8gBIm11pfa+YFSsavty6Tn3v7Pa/qmdu526s7XAOd1AwLYvmuP3nfrjmTr3S8M2EL+e16hZTiem04QUgitlJUKgUSikIvBuhO6KdwSYrHUsLhdSoC1gJNNPZJrFrHkYinLiWY0DA7Z/MiY5k/XXAETKbC8tLXrZVmPc84hjPR9rTJAufah+y/N/lXzRU6cj5L/QwABbN+zR+/bsSO59BsvdgUd3b8lfP8PnIWkUbEgnBBSCZorlUBhmk5n8YqLmpxF4ZxvJNI1UwJLM/J1siniar7slYuLa4YGi+dKpMQKhbIWbUE5XOyMNWmtZJvGTpnn0jb+zX+5LL2nuUEDXg+cfzcggFcujVc9WL7WCfkxnU5fK6QgqVYsAieFXKyBvXyZn4pXkM27cK//ZqQzWCFIhHDSKhsIrXQGQpGcDbX7m9R8+DcPXJ4fP/+G/nse898PCMA5sfNO5Pn5fOXeuTdIpT+mMtkdUoGp1nE401RsCQmInwT0KhuvX8u1ne8aRlinEr8gbEES1c1ICu7oKqq/+aflYhzg9fibnzX+zwAtjp27nVq7E3frYolg2yPxG6R2vyfgOhksfk5QLcQ5YxY1gi87jtcDyDnnBEYgtNAeFASqBn7DjoVK3j6xULnjmevyTTDOqTt5OSv/946fC6Dz4ydBXXvELYun67cIT28Tksul9jJCQFJtvOKo1wjIgfR9VBqSmsUlybkk439NCL6ZGufJ+98gpuHnB+b8+LkCOj927nbqlTUVgO3PuSVitvEBp1Qn1vzKy69+LYCclSktbWifUDm1z1bsD5Ws7b3/0uL0S+ff4/S+qzE/LzDnx/8L/zddqagivqAAAAAASUVORK5CYII=" alt="EPHI"><img class="moh" src="data:image/png;base64,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zfXXX8/DDz/ME088wYoVK2hpaeHJJ5/8PeDONlfvKM5CCMIw5O///u9pbGzkyJEjbNmyhZaWFlatWkUYhvi+TyaTQSlFQ0MD1dXVAAwODpJOp5k6dSpCCGpqakin03R1ddHQ0MD3Vq9iYGCAVza9zG9+8xumTJ7MN77xDR599FHa2tq47777yGazPPzww7z44oscPXqUa6+9lttvv52VK1direXEiRM8/vjjbNq0Ca01URTxsY99jHHjxrF27VpaW1uRUvLEE0/Q1tbGiRMn+PSnP8369etZvHgxq1evZv/+/axatYqPfvSjaK1JJBIkk0kWLlzI/PnzWbhwIT/72c/YuXMn11xzzbsJ7B8GcXBwEIDPfOYzLFy4kOnTp/PFL34RgAceeICuri6+8pWvsHXrVq6//nq2bdsGwIQJE1i6dCl33XUXSik+9alPcckll/Dcc89x0UUXMWr0KMaNG8fy5csZSqcZOWoUY8eOJZfLMWPGDO677z5qamqYNm0aS5YsIQxDHKegdUqie+zYMdasWcNjjz1W/v/w4cMAfPKTn+Tb3/423d3dzJs3jz/7sz+jtraWW265hZkzZ3LllVfS19fH17/+dZYvX17u47p163jhhRf4/Oc/z6RJk/jEJz6BMYYvfOELXH311Wfp4t+nd9WJmUyGXC5HX18fuVzuHJHo7e3lW9/6FgsXLuS6666ju7sbgFgsxr333suu3bsY1TSK5jHNXHnllaxZs4b6+no6z3TQ1taG5/v09fZRU1NDEASk02k8z6Ourg5jDHv27OHee+9lxIgRbN++nWXLllFRUUFzczPz589nzZo1WGsJggCArVu3UllZyde+9jU2bNjA008/za233orjOPz0pz8tg1ldXU1tbS0DAwPl6++//34++9nP0t/fz913382Pf/xj6uvrmTt3Lj/60Y9YsWIF8fgfTjz5PWhLvpAQglmzZuF5Hs3NzYwfPx7P85gxYwYXXHABS5YswRhDMpnk0ksvpaGhoWAZjcH3fRYtXERz82i01nR2ddEwopFXNr9CEIWMHT+OJzc8RfOYZiZOnEgymWTu3Lll/TZnzhyamppYvnw5t912G57ncc8995QVfcmNKrkmAFVVVUydOpUoipg1axZPPfUUx48fx/M8Fi5cSBRFaK2JxWJceOGF+L4PFNRPU1MTl19+OVdddRXV1dUIIdi3bx9DQ0MYY9i3b9/vuTolW22tfedpn7W2zL6ljpZcnJLhKbkNQgiCICi3KbkIUDBSJWNQ0l2u62KMQWuN7/tlMEptpZTkcjmklHjeb0vHgiAo+33W2rKPWnpmyUEucVfJFyy5Jp7nEUURjuOQz+fL/S95G47jlN2skmEqjavU57NxMtYiheDEydO/L84lYPL5PKtWreL2229n8+bN9Pb2lsV13rx5dHV18cYbb9Dc3ExHRwd1dXWEYciePXtYunQphw4dIhaL4ft+WeeNHTuW2bNn85N/+wmnz5zmuuuuY8eOHWSzWW688UaCIOD48eOMHj2anTt3cuzYMVzX5eabb2bTpk00NjYipSSRSGCt5cEHH6SlpYWqqiouv/xyduzYwcUXX0xlZSVvvfUWv/jFLxg/fjzxeJzt27czfvx4xo0bx+LFi3nmmWc4ffo0s2fP5vXXX6eiooI5c+aUn5NKpaiurqa+vp7XX3+dO+644w+K8x8EUWvNiy++SE1NDa+99hq1tbVlDtq+fTszZsxg//79ZLNZ+vv7qaysZMqUKRw+fJi6ujp+/etf09TUxMSJE3nyySfJ5XLcd999bN68mf6Bfi6//HLWrl3L4OAgLS0tJJNJ2tvb+fnPf04qlaKqqoqDBw+ydOlS0uk069atY/bs2YwePZqqqipWrlyJ4zjMnz+fjRs38r3vfY8oimhubmbPnj14nkdrayuTJ09m3rx5bNmyhSVLlrBmzRo2bdpEV1cXSikOHTrEHXfcQUdHB2vXrkVrTSaToauriwULFrBx40ZOnDjBTTfdRDKZfMcqg9/TiSX2z+fzzJw5k1/+8pfE43Fqamro7+9n1qxZ+L5Pa2srAIlEgrlz57JlyxaklNTU1JBMJkmlUsRiMSZNmsT8+fNZsmQJiUSiLNq5XA6tNalUigULFlBRUUEul6OxsZGJEycSBAGu6zJt2jSeeuopDh48yJtvvsn+/fs5ceIEPT09JJNJRowYQSwWY/r06fi+TywWK+vyqqoqmpubSSaTJJNJqqqqqKysZPr06eXpoDGGdDpNPp8v673rrruOFStW8PLLL7Nnzx4GBwfZunVrGZ/SnB2KmcJn68Sz58fd3d28/vrrdHd3l0W1v7+fsWPHUlNTw+7du/F9H6UUR44cobm5mcWLF/Pmm28yceJEDh06xJgxY+jp6SGVShGGIfPmzSMIAh555BGOHDnC9ddfz6lTp1i5ciVCCNrb2+no6KCpqYm9e/fS3t6O67pEUcSiRYsYHBzk8OHDdHR0lLl33rx5HDhwgGnTptHW1sb8+fNJpVIcOHCAX/7ylzQ0NHDFFVfQ1tbGnDlzaG9vZ/LkyWzevJkgCJgwYQIvvfQSlZWVzJ07l6GhIVasWMHevXt56qmnWLZsWVnPls4FhS0z5R+KJ54d4fhDftG/t3Cm1K6klIMgQAhRNjYlKgUulCpuNvkHplfv9oyz+1Qyir/dKerc+53d9p3GUjI8v/v7ObtP2d+C+I5+YqlTxhjCMDwnyvK7oaNy9OWskNjZv5fobGtfiqqc7U6Vghel67XWZXemFFk5OwxXChKUzkttz+5X6ffSvc9+Zkm/CyHK9yndq8T9pftAIWZQwqFUIF/G698b2f6PlG0Npxj77GjJO93jj/3/u+2Gszj1bvc4O7L9/wCmonhhtEEE+wAAAABJRU5ErkJggg==" alt="Ministry of Health Ethiopia"></div>
 <div class="wrap">
   <div class="hdr">
     <h1 id="h1title">Polio SIA Analytics &amp; Action Tool</h1>
@@ -1646,7 +1658,7 @@ function bestFirst(items, key, higherIsBetter){
 }
 
 // ---- tabs ----
-const TABS=[{k:'sum',label:'Summary'},{k:'adm',label:'Admin'},{k:'sup',label:'Vaccination Team Supervision'},{k:'im',label:'In-process IM'},{k:'sm',label:'Social Mobilization Supervision'},{k:'tri',label:'Data Triangulation (Priority List)'}];
+const TABS=[{k:'sum',label:'Summary'},{k:'adm',label:'Admin'},{k:'sup',label:'Vaccination Team Supervision'},{k:'im',label:'In-process IM'},{k:'sm',label:'Social Mobilization Supervision'},{k:'hf',label:'Health Facility Validation'},{k:'tri',label:'Decision Guide for Action'}];
 let active='sum';
 const tabsEl=document.getElementById('tabs');
 function paintTabs(){tabsEl.innerHTML='';TABS.forEach(t=>{const b=document.createElement('button');b.className=active===t.k?'on':'';b.innerHTML=t.label;b.onclick=()=>{active=t.k;paintTabs();paint();};tabsEl.appendChild(b);});}
@@ -1752,7 +1764,7 @@ function barOptH(suffix,ytitle){return {responsive:true,maintainAspectRatio:fals
 function donutOpt(c){return {responsive:true,maintainAspectRatio:false,cutout:c||'66%',plugins:{legend:{display:false}}};}
 
 function paint(){clearCharts();if(active!=='tri'){triPage.style.display='none';page.style.display='';}
-  try{ ({sum:paintSum,adm:paintAdm,sup:paintSup,im:paintIM,sm:paintSM,tri:paintTri}[active])(); }
+  try{ ({sum:paintSum,adm:paintAdm,sup:paintSup,im:paintIM,sm:paintSM,hf:paintHF,tri:paintTri}[active])(); }
   catch(e){ console.error('paint error on tab '+active, e); if(active!=='tri'){ page.innerHTML='<div style="padding:16px;color:#B71C1C;font-size:13px">This tab hit an error while rendering: '+(e&&e.message?e.message:e)+'</div>'; } }
 }
 
@@ -1778,6 +1790,104 @@ function metricBreakdown(metricFn, higherIsBetter){
 }
 
 // ===== SUMMARY =====
+// ===== CHRONIC (CONSECUTIVE) TRACKER =====
+// Flags a woreda+indicator when the daily concern threshold is met on 2+ CONSECUTIVE
+// campaign days (a gap breaks the streak). Core indicators only. Sample-based wording.
+// Suppressed on Day 1 (needs 2+ days). Grouped by region.
+var _CHRONIC_SUP = {askafp:'teams not asking about AFP', notexp:'vaccine exposed',
+  fm:'teams not finger-marking correctly', mark:'teams not marking houses correctly',
+  revisit:'teams not recording revisits', nopv2:'insufficient OPV for the day',
+  stage:'vaccine found in stage 3/4', ri:'caregivers not reminded about routine immunization',
+  vvm:'teams not interpreting VVM correctly'};
+var _CHRONIC_SM = {infDay:'caregivers were not informed of the campaign day',
+  poorCov:'poorly covered areas were reported', ready:'caregivers were not ready to vaccinate'};
+// Admin core: label + per-day test function (di). concern-style, daily.
+function _chronicAdminFlag(w, key, di){
+  if(key==='cov'){ var tg=+w.tgt; if(!(tg>0))return false; var v=_admDay(w,'vax',di); if(v==null)return false;
+    var cov=_admPct(v,tg); var cb=(D.covBar&&D.covBar.length)?D.covBar:[25,50,75,95,100,100];
+    var pace=(di<cb.length)?cb[di]:cb[cb.length-1]; return cov!=null && cov < (pace-5); }
+  if(key==='dataval'){ var vx=_admDay(w,'vax',di), vl=_admDay(w,'vialUsed',di);
+    if(vx==null||vl==null)return false; return vx > (vl*20); }
+  if(key==='zero'){ var z=_admDay(w,'zdVax',di), zi=_admDay(w,'zerodose',di);
+    if(zi==null||!(zi>0))return false; var zv=z||0; return (zi-zv)>0; }
+  if(key==='vvm'){ var n=_admDay(w,'vialVVM',di); return n!=null && n>0; }
+  if(key==='broken'){ var b=_admDay(w,'vialBroken',di); return b!=null && b>0; }
+  if(key==='missing'){ var m=_admDay(w,'vialLost',di); return m!=null && m>0; }
+  return false;
+}
+var _CHRONIC_ADM = {cov:'coverage behind the expected pace', dataval:'children vaccinated exceeding doses from opened vials',
+  zero:'identified zero-dose children not vaccinated', vvm:'vaccine returned in VVM 3/4',
+  broken:'broken vials', missing:'missing vials'};
+// supervision/social-mob per-day flag test via the sample threshold
+function _chronicSupFlag(w, ind, di){ var byDay=w.supNByDay; if(!byDay)return false;
+  var dd=byDay[DAYS[di]]; if(!dd||!dd[ind])return false; var y=dd[ind].yes||0,n=dd[ind].no||0;
+  var concern=(ind==='notexp')?y:n; return _flagBySample(concern, y+n); }
+function _chronicSmFlag(w, ind, di){ var byDay=w.smNByDay; if(!byDay)return false;
+  var dd=byDay[DAYS[di]]; if(!dd||!dd[ind])return false; var y=dd[ind].yes||0,n=dd[ind].no||0;
+  var concern=(ind==='poorCov')?y:n; return _flagBySample(concern, y+n); }
+// longest consecutive run of flagged days up to dayIdx; returns {len, days:[labels]} or null
+function _consecutiveRun(testFn){
+  // The run must END on the currently selected day. Walk backward from dayIdx while flagged.
+  if(!testFn(dayIdx)) return null;
+  var start=dayIdx;
+  while(start-1>=0 && testFn(start-1)) start--;
+  var len=dayIdx-start+1;
+  if(len<2) return null;
+  var days=[]; for(var k=start;k<=dayIdx;k++) days.push(DAYS[k]);
+  return {len:len, days:days};
+}
+// Build chronic findings for a set of woredas: array of {region, text}
+function _chronicFindings(ws){
+  // pillar: one of 'adm' | 'sup' | 'sm'. Admin coverage ('cov') intentionally excluded.
+  var out=[];
+  ws.forEach(function(w){
+    Object.keys(_CHRONIC_SUP).forEach(function(ind){ var r=_consecutiveRun(function(di){return _chronicSupFlag(w,ind,di);});
+      if(r) out.push({pillar:'sup', region:w.region||'', name:w.name, label:_CHRONIC_SUP[ind], days:r.days}); });
+    Object.keys(_CHRONIC_SM).forEach(function(ind){ var r=_consecutiveRun(function(di){return _chronicSmFlag(w,ind,di);});
+      if(r) out.push({pillar:'sm', region:w.region||'', name:w.name, label:_CHRONIC_SM[ind], days:r.days}); });
+    Object.keys(_CHRONIC_ADM).forEach(function(key){ if(key==='cov')return;   // exclude admin coverage
+      var r=_consecutiveRun(function(di){return _chronicAdminFlag(w,key,di);});
+      if(r) out.push({pillar:'adm', region:w.region||'', name:w.name, label:_CHRONIC_ADM[key], days:r.days}); });
+  });
+  return out;
+}
+function _chronicSectionHTML(ws){
+  if(dayIdx<1) return '';                       // need 2+ days (Day 2 onward)
+  var finds=_chronicFindings(ws); if(!finds.length) return '';
+  var PILLAR_ORDER=['adm','sup','sm'];
+  var PILLAR_NAME={adm:'Admin', sup:'Vaccination Team Supervision Findings', sm:'Social Mobilization Supervision Reports'};
+  // group: region -> pillar -> key(label|days) -> list of woreda names
+  var byR={};
+  finds.forEach(function(f){
+    var rn=f.region||'(Region)';
+    byR[rn]=byR[rn]||{};
+    byR[rn][f.pillar]=byR[rn][f.pillar]||{};
+    var key=f.label+'||'+f.days.join(',');
+    if(!byR[rn][f.pillar][key]) byR[rn][f.pillar][key]={label:f.label, days:f.days, names:[]};
+    byR[rn][f.pillar][key].names.push(f.name);
+  });
+  var regions=Object.keys(byR).sort();
+  var body=regions.map(function(rn){
+    var regHdr='<div style="font-size:13.5px;font-weight:bold;color:var(--navy);letter-spacing:.3px;margin:4px 0 8px">\u25B8 '+rn.toUpperCase()+'</div>';
+    var pillarsHtml=PILLAR_ORDER.filter(function(p){return byR[rn][p];}).map(function(p){
+      var groups=Object.keys(byR[rn][p]).map(function(k){return byR[rn][p][k];});
+      groups.sort(function(a,b){ if(b.days.length!==a.days.length)return b.days.length-a.days.length; return a.label.localeCompare(b.label); });
+      var items=groups.map(function(g){
+        var wlist=_admList(g.names.slice().sort().map(function(n){return _admBold(n);}));
+        return '<li style="margin:3px 0;line-height:1.5;font-size:12px;color:var(--ink)">Significant number of reports indicated <b>'+g.label+'</b> in '+wlist+' on '+_admList(g.days)+'.</li>';
+      }).join('');
+      return '<div style="font-size:12px;font-weight:bold;color:var(--navy);text-transform:uppercase;letter-spacing:.3px;opacity:.75;margin:10px 0 3px">'+PILLAR_NAME[p]+'</div>'+
+        '<ul style="margin:0 0 0 18px;padding:0">'+items+'</ul>';
+    }).join('');
+    return '<div style="margin:6px 0 2px">'+regHdr+pillarsHtml+'</div>';
+  }).join('<div style="border-top:1px dashed #D9C77E;margin:14px 0"></div>');
+  return '<div style="border-top:3px solid var(--navy);margin:22px 0 14px"></div>'+
+    '<div style="border:1px solid #E6C34A;border-radius:8px;padding:16px 18px;background:#FFFDF2">'+
+    '<div style="font-size:14.5px;font-weight:bold;color:#3a3000;margin-bottom:6px">Recurring Areas for Attention (Consecutive Days)</div>'+
+    '<div style="font-size:11.5px;color:var(--mut);margin-bottom:14px">Findings that appeared in the sampled reports on two or more consecutive days up to '+DAYS[dayIdx]+'.</div>'+
+    body+'</div>';
+}
+
 function paintSum(){
   const ws=scoped();
   const cov=avg(ws.map(w=>dm(w).cov)), sup=avg(ws.map(w=>dm(w).sup));
@@ -1841,15 +1951,16 @@ function paintSum(){
     kpi('Supervision Coverage',ndp(sup),cumCap,'var(--mut)')+
     kpi('Priority Woredas',c[1]+c[2],'Level 1 and 2 (as of '+dayCap+')')+
     '</div>';
-  html+='<div class="notice">Summary page of key indicators across campaign areas. Open each tab for the detailed breakdowns, and the Data Triangulation (Priority List) tab for the priority list mapping and navigation.</div>';
+  html+='<div class="notice">Summary page of key indicators across campaign areas. Open each tab for the detailed breakdowns, and the Decision Guide for Action tab for the priority list, mapping and navigation.</div>';
   html+='<div class="sectit" style="margin-top:6px">Summary of Admin Performance</div><div class="secsub">'+scopeLabel()+', as of '+DAYS[dayIdx]+'</div>';
   html+=slide7Panel();
   html+='<div class="prisep" style="height:18px"></div>'+'<div class="sectit" style="margin-top:6px">Priority</div>'+'<div class="secsub">'+(place.w?(place.w+' Woreda - Priority Level'):place.z?(place.z+' Zone - Priority Level of Woredas'):place.r?(place.r+' Region - Priority Level of Woredas'):'All Implementing Regions - Priority Level of Woredas')+'</div>';
   html+='<div class="grid2" style="grid-template-columns:1.25fr 0.75fr;align-items:start">';
   var _priCount=ws.map(w=>lvl(w)).filter(l=>l>0).length;
-  html+='<div class="plist" style="max-height:360px"><div class="sh"><span class="t">Priority list ('+_priCount+') · '+placeName()+'</span><button class="dlbtn" onclick="dlList()">Download CSV</button></div><div class="pscroll" id="sumpl"></div></div>';
-  html+=card('Priority Level for Follow Up (Woredas)','triangulation of Admin Coverage, IM (where available) and Supervision Coverage','<div class="chartbox" style="height:240px"><canvas id="smix"></canvas></div>');
+  html+='<div class="plist" style="max-height:360px"><div class="sh"><span class="t">Priority Level of the '+_priCount+' woreda'+(_priCount===1?'':'s')+' in '+placeName()+' as of '+DAYS[dayIdx]+'</span><button class="dlbtn" onclick="dlList()">Download CSV</button></div><div class="pscroll" id="sumpl"></div></div>';
+  html+=card('Priority Level for Follow Up (Woredas)','Triangulation of Admin Coverage, Independent Monitoring (if >=5% of children not finger-marked inside HH) and Supervision Coverage','<div class="chartbox" style="height:240px"><canvas id="smix"></canvas></div>');
   html+='</div>';
+  html+=_chronicSectionHTML(ws);
   page.innerHTML=html;
   const pl=document.getElementById('sumpl');
   ws.map(w=>({w,l:lvl(w)})).filter(x=>x.l>0).sort((a,b)=>a.l-b.l).forEach(({w,l})=>{
@@ -2194,16 +2305,6 @@ var ADM_INDICATORS = [
    narrative:function(rows){ var frag=rows.map(function(r){return _admBold(r.name)+' ('+r.fig+')';});
      return '<b>Under-vaccinated follow-up:</b> Some identified under-vaccinated children were not vaccinated in '+_admList(frag)+'.'; } },
 
- { key:'u1', label:'Under-1 share of unvaccinated', table:'Under-1 share of unvaccinated',
-   compute:function(w){ var worst=null;
-     for(var di=0; di<=dayIdx; di++){ var u1n=_admDay(w,'vaxU1Not',di)||0,a1n=_admDay(w,'vax1to5Not',di)||0; var notv=u1n+a1n;
-       if(!(notv>0))continue; var share=_admPct(u1n,notv); if(share<60)continue;
-       if(!worst||share>worst.share) worst={share:share,day:DAYS[di]}; }
-     if(!worst)return null; var red=(worst.share>=70);
-     return {red:red, val:worst.share, fig:_admFig(worst.share+'%',red)+', '+worst.day}; },
-   narrative:function(rows){ var frag=rows.map(function(r){return _admBold(r.name)+' ('+r.fig+')';});
-     return '<b>Under-1 share of unvaccinated:</b> Most of the children who were not vaccinated were under-1 in '+_admList(frag)+'. Targeting households with under-1 children for the revisit is key and could contribute to zero dose reduction.'; } },
-
  { key:'broken', label:'Broken Vials', table:'Broken Vials',
    compute:function(w){ var n=_admCum(w,'vialBroken')||0; if(!(n>0))return null; return {red:true, val:n, fig:String(n)}; },
    narrative:function(rows){ var frag=rows.map(function(r){return _admBold(r.name)+' ('+r.fig+')';});
@@ -2217,7 +2318,38 @@ var ADM_INDICATORS = [
  { key:'lost', label:'Missing Vials', table:'Missing Vials',
    compute:function(w){ var n=_admCum(w,'vialLost')||0; if(!(n>0))return null; return {red:true, val:n, fig:String(n)}; },
    narrative:function(rows){ var frag=rows.map(function(r){return _admBold(r.name)+' ('+r.fig+')';});
-     return '<b>Missing Vials:</b> reported from '+_admList(frag)+'.'; } }
+     return '<b>Missing Vials:</b> reported from '+_admList(frag)+'.'; } },
+
+ // AFP Surveillance Reporting: woredas WITH AFP reported (cumulative). A positive highlight
+ // needing surveillance follow-up and stool collection. Narrative adapts to 1, 2, 3, or 3+ woredas.
+ { key:'afprpt', label:'AFP Surveillance Reporting', table:'AFP Surveillance Reporting', positive:true,
+   compute:function(w){ var n=_admCum(w,'afp')||0; if(!(n>0))return null; return {red:false, val:n, fig:String(n)}; },
+   narrative:function(rows){ var total=rows.reduce(function(a,r){return a+(+r.val||0);},0);
+     var unit=(total===1?'AFP case':'AFP cases');
+     var tail=' Surveillance officers should conduct the necessary follow-up and stool collection.';
+     var named=rows.filter(function(r){return r.name;});
+     if(!named.length){ return '<b>AFP Surveillance Reporting:</b> '+total.toLocaleString()+' '+unit+' reported.'+tail; }
+     var sorted=named.slice().sort(function(a,b){return (+b.val)-(+a.val);}); var where;
+     if(sorted.length<=3){ where='in '+_admList(sorted.map(function(r){return _admBold(r.name)+' ('+r.fig+')';})); }
+     else { where='with the most in '+_admList(sorted.slice(0,3).map(function(r){return _admBold(r.name)+' ('+r.fig+')';})); }
+     return '<b>AFP Surveillance Reporting:</b> '+total.toLocaleString()+' '+unit+' reported, '+where+'.'+tail; } },
+
+ // Need for Improved AFP Search by Vaccination Teams: daily cross-check. Flag a woreda when
+ // AFP reported is 0 for a day AND a significant share of supervision reports that day show
+ // teams were not asking about AFP. Zero reported plus teams not asking suggests the zero
+ // reflects teams not asking, not a true absence.
+ { key:'afpask', label:'Need for Improved AFP Search by Vaccination Teams', table:'Need for Improved AFP Search by Vaccination Teams',
+   compute:function(w){ var worst=null;
+     for(var di=0; di<=dayIdx; di++){
+       var afp=_admDay(w,'afp',di); if(afp==null) afp=0; if(afp>0) continue;
+       var c=_supAskAfpConcern(w,di); if(!c) continue;
+       if(!_flagBySample(c.notAsking, c.tot)) continue;
+       var pct=_admPct(c.notAsking, c.tot);
+       if(!worst||pct>worst.pct) worst={pct:pct, notAsking:c.notAsking, tot:c.tot, day:DAYS[di]}; }
+     if(!worst)return null;
+     return {red:true, val:worst.pct, fig:_admFig(worst.pct+'%',true)+', '+worst.notAsking+' of '+worst.tot+' reports, '+worst.day}; },
+   narrative:function(rows){ var frag=rows.map(function(r){return _admBold(r.name)+' ('+r.fig+')';});
+     return '<b>Need for Improved AFP Search by Vaccination Teams:</b> No AFP was reported while a notable share of teams were not asking about AFP in '+_admList(frag)+'. Kindly ensure teams ask about AFP during their house visits.'; } }
 ];
 
 function _admRunChecks(ws){
@@ -2314,6 +2446,16 @@ function openAdminReport(){
 }
 function closeAdminReport(){ var ov=document.getElementById('admReportOverlay'); if(ov) ov.style.display='none'; }
 
+// For a woreda on a given day, supervision "Team asked about AFP" (askafp): returns
+// { notAsking, tot } where notAsking = reports with No. Null if no askafp reports that day.
+function _supAskAfpConcern(w, di){
+  var byDay=w.supNByDay; if(!byDay)return null;
+  var dd=byDay[DAYS[di]]; if(!dd||!dd.askafp)return null;
+  var yes=dd.askafp.yes||0, no=dd.askafp.no||0; var tot=yes+no;
+  if(tot<=0)return null;
+  return { notAsking:no, tot:tot };
+}
+
 // ========================== END ADMIN FLAG REPORT ENGINE ==========================
 
 // ========================= SUPERVISION FLAG REPORT ENGINE =========================
@@ -2326,17 +2468,17 @@ function closeAdminReport(){ var ov=document.getElementById('admReportOverlay');
 
 // Negative-tone labels for every supervision indicator (inv flips which side is the concern).
 var SUP_NEG = {
-  trained:'Team members not trained', complete:'Incomplete vaccination teams',
-  local:'Local team member absent', move:'Movement plan unavailable',
-  maps:'Area maps unavailable', mapsint:'Maps not interpreted correctly',
-  mark:'Houses not marked correctly', fm:'Poor finger-marking',
-  revisit:'Revisits not recorded', tallied:'Doses tallied not recorded',
-  nopv2:'Insufficient nOPV2 for the day', recvials:'Received vials not recorded',
-  stage:'Vaccine found in stage 3/4', vvm:'VVM not interpreted correctly',
-  icepack:'Frozen icepack issues', foam:'Foam cover not present',
-  notexp:'Vaccine not exposed', parents:'Parents/Caregivers not informed of next round',
-  ri:'Parents/Caregivers not reminded about routine immunization',
-  askafp:'Team not asking about AFP'
+  trained:'teams with members not trained', complete:'incomplete teams',
+  local:'teams without a local member', move:'teams without a movement plan',
+  maps:'teams without area maps', mapsint:'teams not interpreting maps correctly',
+  mark:'teams not marking houses correctly', fm:'teams not finger-marking correctly',
+  revisit:'teams not recording revisits', tallied:'teams not recording tallied doses',
+  nopv2:'insufficient OPV for the day', recvials:'teams not recording received vials',
+  stage:'vaccine found in stage 3/4', vvm:'teams not interpreting VVM correctly',
+  icepack:'frozen icepack issues', foam:'foam cover not present',
+  notexp:'vaccine exposed', parents:'caregivers not informed of the next round',
+  ri:'caregivers not reminded about routine immunization',
+  askafp:'teams not asking about AFP'
 };
 
 function _supConcern(w, ind){ // concern count for an indicator, selected day only (daily)
@@ -2361,14 +2503,16 @@ function _supHasReport(w){ var c=dm(w).supN; if(!c)return false;
 function _flagBySample(concern, tot){
   if(!tot || tot<=0 || concern<=0) return false;
   // Agreed thresholds (concern = NOs):
-  //   1 - 2 reports    -> flag only if 100% No (all reports are No)
-  //   3 - 5 reports    -> flag if No >= 2
-  //   6 - 20 reports   -> flag if No >= 3
-  //   21 - 200 reports -> flag if No >= 10%
-  //   > 200 reports    -> flag if No >= 5%
-  if(tot<=2)   return concern===tot;        // 100% No
+  //   1 report         -> flag if 1 No
+  //   2 - 5 reports     -> flag if No >= 2
+  //   6 - 10 reports    -> flag if No >= 3
+  //   11 - 20 reports   -> flag if No >= 4
+  //   21 - 200 reports  -> flag if No >= 10%
+  //   > 200 reports     -> flag if No >= 5%
+  if(tot===1)  return concern>=1;
   if(tot<=5)   return concern>=2;
-  if(tot<=20)  return concern>=3;
+  if(tot<=10)  return concern>=3;
+  if(tot<=20)  return concern>=4;
   if(tot<=200) return (concern/tot)>=0.10;
   return (concern/tot)>=0.05;
 }
@@ -2391,6 +2535,7 @@ function _recurTag(w, ind, byDayKey, flipInd){
   if(d.flagged>=2) return ' <span style="color:var(--L1);font-style:italic">(recurring: flagged on '+d.flagged+' of '+d.withReports+' days so far)</span>';
   return '';
 }
+
 function _supRunChecks(ws){
   var res={};
   SUP.forEach(function(def){ var ind=def.k; var rows=[];
@@ -2422,14 +2567,14 @@ function _supScopeBlock(ws){
   var narr='';
   if(keys.length){ narr='<ul style="margin:0 0 0 18px;padding:0">'+keys.map(function(k){
     var frag=res[k].map(function(r){return _admBold(r.name)+' ('+r.fig+')';});
-    return '<li style="margin:4px 0;line-height:1.5"><b>'+SUP_NEG[k]+':</b> reported in '+_admList(frag)+'.</li>';
+    return '<li style="margin:4px 0;line-height:1.5">Significant number of reports indicated <b>'+SUP_NEG[k]+'</b> in '+_admList(frag)+'.</li>';
   }).join('')+'</ul>'; }
 
   var prioBlock = prio.length ? ('<div style="font-size:12px;line-height:1.5;color:var(--ink);margin-top:10px"><b>Priority areas with no supervision report:</b> '+_admList(prio.map(function(n){return _admBold(n);}))+' are behind on administrative coverage and have no supervision report as of '+DAYS[dayIdx]+', warranting urgent attention.</div>') : '';
 
-  var teamBlock = teamRows.length ? ('<hr style="border:none;border-top:1px solid var(--line);margin:12px 0"><div style="font-size:12px;line-height:1.5;color:var(--ink)"><b>Teams not yet reported on supervision:</b> '+
+  var teamBlock = teamRows.length ? ('<hr style="border:none;border-top:1px solid var(--line);margin:12px 0"><div style="font-size:12px;line-height:1.5;color:var(--ink)"><b>Teams with no submitted supervision report as of '+DAYS[dayIdx]+':</b> '+
     _admList(teamRows.map(function(t){return _admBold(t.name)+' ('+t.pct+'%, '+t.missing+' of '+t.plan+' teams)';}))+
-    '. This reflects ODK reporting. Supervision may have occurred without being recorded.</div>') : '';
+    '. This reflects ODK reporting, so supervision may have occurred without being recorded.</div>') : '';
 
   // summary table + most-issues (indicators only; teams & priority excluded)
   var table='', most='';
@@ -2478,7 +2623,7 @@ function _supReportHTML(){
       var tableTitle='Summary for '+g.name+(place.z?(' in '+(place.r||'')+' Region'):'')+' on '+DAYS[dayIdx];
       html+='<div style="font-size:12px;font-style:italic;color:var(--navy);margin:18px 0 4px">'+tableTitle+'</div>'+
         '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="text-align:left;color:var(--navy)">'+
-        '<th style="padding:4px 8px">Indicator</th><th style="padding:4px 8px">Woredas needing follow up</th></tr></thead><tbody>'+b.table.trows+'</tbody></table>';
+        '<th style="padding:4px 8px">Indicator (significant %)</th><th style="padding:4px 8px">Woredas to observe more for improvement</th></tr></thead><tbody>'+b.table.trows+'</tbody></table>';
       html+='<div style="font-size:12px;font-weight:bold;color:var(--navy);margin:18px 0 4px">Woredas with the most areas recommended for follow-up:</div>'+b.most;
     }
     return html;
@@ -2512,12 +2657,12 @@ function closeSupReport(){ var ov=document.getElementById('supReportOverlay'); i
 // as the supervision report (narrative, summary table, most-issues), grouped by region.
 
 var SM_NEG = {
-  infDay:'Caregivers not informed on campaign day',
-  infAge:'Caregivers not informed on age group',
-  infVacc:'Caregivers not informed on vaccine type',
-  ready:'Caregivers not ready to vaccinate',
-  prevVacc:'Children not previously vaccinated',
-  poorCov:'Poorly covered area NOT reported'
+  infDay:'caregivers were not informed of the campaign day',
+  infAge:'caregivers were not informed of the age group',
+  infVacc:'caregivers were not informed of the vaccine type',
+  ready:'caregivers were not ready to vaccinate',
+  prevVacc:'children were not previously vaccinated',
+  poorCov:'poorly covered areas were reported'
 };
 
 function _smConcern(w, ind){
@@ -2551,7 +2696,7 @@ function _smScopeBlock(ws){
   if(!keys.length) return null;
   var narr='<ul style="margin:0 0 0 18px;padding:0">'+keys.map(function(k){
     var frag=res[k].map(function(r){return _admBold(r.name)+' ('+r.fig+')';});
-    return '<li style="margin:4px 0;line-height:1.5"><b>'+SM_NEG[k]+':</b> reported in '+_admList(frag)+'.</li>';
+    return '<li style="margin:4px 0;line-height:1.5">Significant number of reports indicated <b>'+SM_NEG[k]+'</b> in '+_admList(frag)+'.</li>';
   }).join('')+'</ul>';
   var trows=keys.map(function(k){ var names=res[k].map(function(r){return (r.red?('<b style="color:var(--L1)">'+r.name+'</b>'):('<b>'+r.name+'</b>'));});
     return '<tr><td style="padding:4px 8px;border-top:1px solid var(--line)"><b>'+SM_NEG[k]+'</b></td>'+
@@ -2594,7 +2739,7 @@ function _smReportHTML(){
     var tableTitle='Summary for '+g.name+(place.z?(' in '+(place.r||'')+' Region'):'')+' on '+DAYS[dayIdx];
     var table='<div style="font-size:12px;font-style:italic;color:var(--navy);margin:18px 0 4px">'+tableTitle+'</div>'+
       '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="text-align:left;color:var(--navy)">'+
-      '<th style="padding:4px 8px">Indicator</th><th style="padding:4px 8px">Woredas needing follow up</th></tr></thead><tbody>'+b.trows+'</tbody></table>';
+      '<th style="padding:4px 8px">Indicator (significant %)</th><th style="padding:4px 8px">Woredas to observe more for improvement</th></tr></thead><tbody>'+b.trows+'</tbody></table>';
     var most='<div style="font-size:12px;font-weight:bold;color:var(--navy);margin:18px 0 4px">Woredas with the most areas recommended for follow-up:</div>'+b.most;
     return header+'<div style="font-size:12px;line-height:1.5;color:var(--ink)">'+b.narr+'</div>'+table+most;
   }).join('<hr style="border:none;border-top:2px solid var(--line);margin:20px 0">');
@@ -2722,7 +2867,7 @@ const SUP=[
   {k:'fm',l:'Finger-mark correct'},
   {k:'revisit',l:'Revisits recorded'},
   {k:'tallied',l:'Doses tallied recorded'},
-  {k:'nopv2',l:'Sufficient nOPV2 for day'},
+  {k:'nopv2',l:'Sufficient OPV for the day'},
   {k:'recvials',l:'Received vials recorded'},
   {k:'stage',l:'Vaccines in stage I/II'},
   {k:'vvm',l:'VVM interpreted correctly'},
@@ -2781,7 +2926,7 @@ function paintSup(){
   }
   page.innerHTML='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div class="sectit">Supportive Supervision of Vaccination Teams ('+placeName()+')</div>'+
     '<button class="dlbtn" style="background:#E8833A;border-color:#E8833A;white-space:nowrap" onclick="openSupReport()">Summary of Follow-up Action Points</button></div>'+
-    '<div class="notify-strong"><span class="ico">\u26a0\ufe0f</span><span>Scroll down and use the <b>Indicator</b> filter to select an indicator, or choose <b>All indicators</b> to view every indicator at once.</span></div>'+
+    '<div class="notify-strong"><span class="ico">\u26a0\ufe0f</span><span>Scroll down and use the filter to select an indicator to see Yes/No supervision findings, or choose <b>All indicators</b> to view every indicator at once.</span></div>'+
     '<div class="cards">'+
       kpi('Vaccination Team Supervision Coverage ('+placeName()+')',pv(sup),'Teams visited at least once across campaign days \u00f7 total teams',supColor)+
       kpi('Vaccination Teams Visited for Supervision (ODK reporting evidence)',teamsSup.toLocaleString(),teamsPlan>0?('out of '+teamsPlan.toLocaleString()+' teams'):'planned teams N/A')+
@@ -3121,13 +3266,13 @@ function paintSM(){
   page.innerHTML='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div><div class="sectit">Social Mobilization Supervision ('+placeName()+')</div>'+
     '<div class="secsub">caregiver outreach and awareness</div></div>'+
     '<button class="dlbtn" style="background:#E8833A;border-color:#E8833A;white-space:nowrap" onclick="openSMReport()">Summary of Follow-up Action Points</button></div>'+
+    '<div class="notify-strong"><span class="ico">\u26a0\ufe0f</span><span>Scroll down and use the filter to select an indicator to see Yes/No supervision findings, or choose <b>All indicators</b> to view every indicator at once.</span></div>'+
     modeToggle()+
     '<div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">'+
       kpi('HHs visited by social mobilizers',ndm(hh),'households')+
       kpi('Group discussion participants',ndm(gd),'parents/caregivers in community meetings')+
       kpi('Reached home-to-home / IPC',ndm(h2),'parents/caregivers reached')+
     '</div>'+
-    '<div class="notify-strong"><span class="ico">\u26a0\ufe0f</span><span>Scroll down and use the <b>Indicator</b> filter to select an indicator, or choose <b>All indicators</b> to view every indicator at once.</span></div>'+
     '<div><span class="indlabel">Indicator:</span><select class="indsel prominent" onchange="smPick(this.value)" style="margin-bottom:12px"><option value="__ALL__" '+(smSel==='__ALL__'?'selected':'')+'>All indicators</option>'+opts+'</select></div>'+
     (smSel==='__ALL__' ? smAllIndicators() :
     '<div class="grid2" style="grid-template-columns:0.85fr 1.15fr;align-items:center">'+
@@ -3186,13 +3331,86 @@ const TRI_BODY = `<div id="app">
   <div class="lf"><button class="bn" id="dlBtn">Download list (Excel/CSV)</button><button class="bn alt" id="shareBtn">Share</button></div>
  </div>
 </div>`;
+var _hfValueLabels={id:'_hfValueLabels',afterDatasetsDraw:function(ch){try{var ctx=ch.ctx;ch.data.datasets.forEach(function(ds,di){var m=ch.getDatasetMeta(di);if(m.hidden)return;m.data.forEach(function(el,i){var v=ds.data[i];if(v==null)return;ctx.save();ctx.font='bold 11px '+FONT;ctx.fillStyle='#334155';if(ch.options.indexAxis==='y'){ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(String(v),el.x+6,el.y);}else{ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText(String(v),el.x,el.y-4);}ctx.restore();});});}catch(e){}}};
+function paintHF(){
+  var hf=D.hf;
+  if(!hf){ page.innerHTML='<div class="sectit">Health Facility Validation ('+placeName()+')</div><div class="secsub">Pre-campaign preparedness</div><div class="notice">No Health Facility Validation data available.</div>'; return; }
+  var ws=scoped();
+  // coverage: woredas with at least one HF validation record, within scope
+  var validated=0, total=0;
+  ws.forEach(function(w){ total++; var k=_nn(w.name); if(hf.woredas&&hf.woredas[k]) validated++; });
+  var cov = total>0 ? Math.round(1000*validated/total)/10 : null;
+
+  // readiness indicators aggregated across scoped validated woredas
+  var indAgg={};
+  ws.forEach(function(w){ var k=_nn(w.name); var rec=hf.woredas&&hf.woredas[k]; if(!rec||!rec.ind)return;
+    Object.keys(rec.ind).forEach(function(code){ var c=rec.ind[code]; if(!indAgg[code])indAgg[code]={yes:0,no:0}; indAgg[code].yes+=c.yes||0; indAgg[code].no+=c.no||0; }); });
+
+  // government officers (vertical) and partners (horizontal) - overall breakdown
+  var govLabels=hf.govOrder||[], govData=govLabels.map(function(l){return (hf.gov&&hf.gov[l])||0;});
+  var partEntries=Object.keys(hf.partner||{}).map(function(k){return [k,hf.partner[k]];}).sort(function(a,b){return b[1]-a[1];});
+  var partLabels=partEntries.map(function(e){return e[0];}), partData=partEntries.map(function(e){return e[1];});
+
+  var html='<div class="sectit">Health Facility Validation ('+placeName()+')</div>'+
+    '<div class="secsub">Pre-campaign preparedness validation. Facility column is at woreda level for now.</div>'+
+    '<div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">'+
+      kpi('Health Facility Validation Coverage ('+placeName()+')',(cov==null?'No Data':cov+'%'),'woredas validated \u00f7 total woredas in scope')+
+      kpi('Woredas validated',validated.toLocaleString(),'out of '+total.toLocaleString()+' woredas in scope')+
+    '</div>'+
+    '<div class="grid2" style="grid-template-columns:1fr 1fr">'+
+      card('Validations by Government Officer Level','number of reports','<div class="chartbox" style="height:260px"><canvas id="hfGov"></canvas></div>')+
+      card('Validations by Partner','number of reports','<div class="chartbox" style="height:260px"><canvas id="hfPart"></canvas></div>')+
+    '</div>';
+
+  // Others note
+  if(hf.othersNamed && Object.keys(hf.othersNamed).length){
+    var on=Object.keys(hf.othersNamed).map(function(k){return k+' ('+hf.othersNamed[k]+')';}).join(', ');
+    html+='<div style="font-size:11.5px;color:var(--mut);margin:2px 0 10px">Others includes '+on+' and reports with no identifiable organization. Organizations with more than 3 reports are shown as their own bar.</div>';
+  }
+
+  // readiness indicators as a donut grid (like supervision All-indicators)
+  html+='<div style="font-size:13px;font-weight:bold;color:var(--navy);margin:14px 0 8px">Readiness indicators ('+placeName()+')</div>';
+  var codes=Object.keys(hf.labels).filter(function(c){return indAgg[c];});
+  if(!codes.length){ html+='<div class="notice">No readiness indicator data for this selection.</div>'; }
+  else {
+    var cards=codes.map(function(code,idx){ var c=indAgg[code]; var t=c.yes+c.no; var yp=t>0?Math.round(1000*c.yes/t)/10:null;
+      return '<div class="card" style="padding:10px"><div style="font-size:11.5px;font-weight:bold;color:var(--navy);margin-bottom:6px;min-height:28px">'+hf.labels[code]+'</div>'+
+        (t===0?'<div style="padding:20px;text-align:center;color:var(--mut);font-size:11px">No data</div>':
+        '<div class="donutwrap"><div class="donutbox" style="width:120px;height:120px"><canvas id="hfD'+idx+'"></canvas><div class="donutctr"><div class="p" style="font-size:16px">'+yp+'%</div><div class="l" style="font-size:10px">Ready</div></div></div></div>'+
+        '<div style="font-size:10.5px;color:var(--mut);text-align:center;margin-top:4px">Ready '+yp+'% \u00b7 n='+t.toLocaleString()+'</div>')+'</div>';
+    }).join('');
+    html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">'+cards+'</div>';
+  }
+
+  page.innerHTML=html;
+
+  // government bar (vertical)
+  if(govLabels.length) mkC('hfGov',{type:'bar',data:{labels:govLabels,datasets:[{data:govData,backgroundColor:'#2C5F8A',borderRadius:3,barPercentage:0.7,categoryPercentage:0.7}]},options:Object.assign(barOpt('',null,false,'Number of reports'),{plugins:{legend:{display:false}}}),plugins:[_hfValueLabels]});
+  // partner bar (horizontal)
+  if(partLabels.length){ var po=barOpt('',null,false,''); po.indexAxis='y'; po.scales={x:{beginAtZero:true,grid:{color:GRID},ticks:{font:{family:FONT,size:11}}},y:{grid:{display:false},ticks:{font:{family:FONT,size:11}}}};
+    mkC('hfPart',{type:'bar',data:{labels:partLabels,datasets:[{data:partData,backgroundColor:'#1D8A6E',borderRadius:3,barPercentage:0.7,categoryPercentage:0.7}]},options:po,plugins:[_hfValueLabels]}); }
+  // readiness donuts
+  if(codes.length){ codes.forEach(function(code,idx){ var c=indAgg[code]; var t=c.yes+c.no; if(t<=0)return;
+    mkC('hfD'+idx,{type:'doughnut',data:{datasets:[{data:[c.yes,c.no],backgroundColor:['#1D8A6E','#DC2626'],borderWidth:0}]},options:donutOpt('72%')}); }); }
+
+  // map of validated places, colored by visited share per region/zone
+  _hfRenderMap(hf, ws);
+}
+// normalize name (match analytics norm_name: lowercase, strip non-alnum)
+function _nn(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+// HF map: color regions/zones by % of their woredas validated (<50 light red, 50-60 light amber, >=60 light green)
+function _hfRenderMap(hf, ws){
+  // placeholder hook: the map container is added only if a map helper exists; reuse points list for markers
+  // (Full choropleth reuses the triangulation map; here we expose the data for that layer.)
+}
+
 function paintTri(){
   // The triangulation tool is a standalone app: build its DOM ONCE into the
   // persistent #triPage container so its map + drill handlers are never wiped.
   page.style.display='none';
   triPage.style.display='';
   if(!triPage.__built){
-    triPage.innerHTML='<div class="sectit">Data Triangulation (Priority List)</div><div class="secsub" id="triSub"></div><div id="tri-root">'+TRI_BODY+'</div>';
+    triPage.innerHTML='<div class="sectit">Decision Guide for Action</div><div class="secsub" id="triSub"></div><div id="tri-root">'+TRI_BODY+'</div>';
     triPage.__built=true;
     if(window.__triInit){ window.__triInit(); }
     // Start the map on the same Day the rest of the platform is showing.
